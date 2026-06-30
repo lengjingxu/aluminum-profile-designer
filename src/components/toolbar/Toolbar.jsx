@@ -1,111 +1,154 @@
 import { getProfileIds, getProfile } from '../../lib/aluminum-profiles'
+import { MousePointer2, Minus, Square, Trash2, Undo2, Redo2, Rotate3d, Grid3x3 } from 'lucide-react'
 
-// 工具栏 - 工具选择、型材规格、撤销重做、视图切换
 export default function Toolbar({
   currentTool, onToolChange,
   currentProfile, onProfileChange,
   onUndo, onRedo,
   viewMode, onViewModeChange,
   canUndo, canRedo,
+  isMobile = false,
 }) {
   const tools = [
-    { id: 'select', label: '选择', icon: '☝️' },
-    { id: 'line', label: '线段', icon: '📏' },
-    { id: 'rect', label: '矩形', icon: '▭' },
-    { id: 'delete', label: '删除', icon: '🗑️' },
+    { id: 'select', label: '选择', Icon: MousePointer2 },
+    { id: 'line', label: '线段', Icon: Minus },
+    { id: 'rect', label: '矩形', Icon: Square },
+    { id: 'delete', label: '删除', Icon: Trash2 },
   ]
 
   const profileIds = getProfileIds()
 
-  return (
-    <div className="flex flex-col gap-3 p-3 bg-card border-r border-divider min-w-[180px]">
-      {/* 工具选择 */}
-      <div>
-        <div className="text-xs text-text-secondary mb-2">绘图工具</div>
-        <div className="flex flex-col gap-1">
-          {tools.map(tool => (
-            <button
-              key={tool.id}
-              className={`flex items-center gap-2 px-3 py-2 rounded text-sm transition-colors ${
-                currentTool === tool.id
-                  ? 'bg-accent text-primary'
-                  : 'bg-hover text-text hover:bg-accent/20'
-              }`}
-              onClick={() => onToolChange(tool.id)}
-            >
-              <span>{tool.icon}</span>
-              <span>{tool.label}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* 型材规格选择 */}
-      <div>
-        <div className="text-xs text-text-secondary mb-2">型材规格</div>
-        <select
-          className="w-full px-3 py-2 bg-hover text-text rounded border border-divider text-sm"
-          value={currentProfile}
-          onChange={(e) => onProfileChange(e.target.value)}
+  if (isMobile) {
+    // Mobile: horizontal bottom bar — tools only (profile in sheet)
+    return (
+      <>
+        {tools.map(tool => (
+          <button
+            key={tool.id}
+            className={`tool-btn ${currentTool === tool.id ? 'active' : ''}`}
+            onClick={() => onToolChange(tool.id)}
+            title={tool.label}
+          >
+            <tool.Icon size={20} />
+          </button>
+        ))}
+        <button
+          className={`tool-btn ${viewMode === '2d' ? 'active' : ''}`}
+          onClick={() => onViewModeChange('2d')}
+          title="2D视图"
         >
-          {profileIds.map(id => {
-            const profile = getProfile(id)
-            return (
-              <option key={id} value={id}>
-                {profile.name} ({profile.width}×{profile.height}) - {profile.description}
-              </option>
-            )
-          })}
-        </select>
-      </div>
+          <Grid3x3 size={20} />
+        </button>
+        <button
+          className={`tool-btn ${viewMode === '3d' ? 'active' : ''}`}
+          onClick={() => onViewModeChange('3d')}
+          title="3D视图"
+        >
+          <Rotate3d size={20} />
+        </button>
+        <button
+          className={`tool-btn ${!canUndo ? '' : ''}`}
+          onClick={onUndo}
+          disabled={!canUndo}
+          title="撤销"
+          style={{ opacity: canUndo ? 1 : 0.4 }}
+        >
+          <Undo2 size={20} />
+        </button>
+        <button
+          className="tool-btn"
+          onClick={onRedo}
+          disabled={!canRedo}
+          title="重做"
+          style={{ opacity: canRedo ? 1 : 0.4 }}
+        >
+          <Redo2 size={20} />
+        </button>
+      </>
+    )
+  }
 
-      {/* 撤销/重做 */}
-      <div>
-        <div className="text-xs text-text-secondary mb-2">操作</div>
-        <div className="flex gap-2">
-          <button
-            className={`flex-1 px-3 py-2 rounded text-sm ${
-              canUndo ? 'bg-hover text-text hover:bg-accent/20' : 'bg-hover/50 text-text-secondary'
-            }`}
-            onClick={onUndo}
-            disabled={!canUndo}
-          >
-            ↩️ 撤销
-          </button>
-          <button
-            className={`flex-1 px-3 py-2 rounded text-sm ${
-              canRedo ? 'bg-hover text-text hover:bg-accent/20' : 'bg-hover/50 text-text-secondary'
-            }`}
-            onClick={onRedo}
-            disabled={!canRedo}
-          >
-            ↪️ 重做
-          </button>
-        </div>
-      </div>
+  // Desktop: vertical sidebar with labels and profile selector
+  return (
+    <div className="desktop-toolbar">
+      {/* Tool buttons */}
+      {tools.map(tool => (
+        <button
+          key={tool.id}
+          className={`tool-btn ${currentTool === tool.id ? 'active' : ''}`}
+          onClick={() => onToolChange(tool.id)}
+          title={tool.label}
+        >
+          <tool.Icon size={18} />
+          <span style={{ fontSize: 10 }}>{tool.label}</span>
+        </button>
+      ))}
 
-      {/* 视图切换 */}
-      <div>
-        <div className="text-xs text-text-secondary mb-2">视图模式</div>
-        <div className="flex gap-2">
-          <button
-            className={`flex-1 px-3 py-2 rounded text-sm transition-colors ${
-              viewMode === '2d' ? 'bg-accent text-primary' : 'bg-hover text-text hover:bg-accent/20'
-            }`}
-            onClick={() => onViewModeChange('2d')}
-          >
-            2D视图
-          </button>
-          <button
-            className={`flex-1 px-3 py-2 rounded text-sm transition-colors ${
-              viewMode === '3d' ? 'bg-accent text-primary' : 'bg-hover text-text hover:bg-accent/20'
-            }`}
-            onClick={() => onViewModeChange('3d')}
-          >
-            3D视图
-          </button>
-        </div>
-      </div>
+      {/* Divider */}
+      <div style={{ height: 1, background: '#2A2A3E', margin: '4px 0' }} />
+
+      {/* View mode */}
+      <button
+        className={`tool-btn ${viewMode === '2d' ? 'active' : ''}`}
+        onClick={() => onViewModeChange('2d')}
+        title="2D视图"
+      >
+        <Grid3x3 size={18} />
+        <span style={{ fontSize: 10 }}>2D</span>
+      </button>
+      <button
+        className={`tool-btn ${viewMode === '3d' ? 'active' : ''}`}
+        onClick={() => onViewModeChange('3d')}
+        title="3D视图"
+      >
+        <Rotate3d size={18} />
+        <span style={{ fontSize: 10 }}>3D</span>
+      </button>
+
+      {/* Divider */}
+      <div style={{ height: 1, background: '#2A2A3E', margin: '4px 0' }} />
+
+      {/* Undo/Redo */}
+      <button
+        className="tool-btn"
+        onClick={onUndo}
+        disabled={!canUndo}
+        title="撤销"
+        style={{ opacity: canUndo ? 1 : 0.4 }}
+      >
+        <Undo2 size={18} />
+        <span style={{ fontSize: 10 }}>撤销</span>
+      </button>
+      <button
+        className="tool-btn"
+        onClick={onRedo}
+        disabled={!canRedo}
+        title="重做"
+        style={{ opacity: canRedo ? 1 : 0.4 }}
+      >
+        <Redo2 size={18} />
+        <span style={{ fontSize: 10 }}>重做</span>
+      </button>
+
+      {/* Divider */}
+      <div style={{ height: 1, background: '#2A2A3E', margin: '4px 0' }} />
+
+      {/* Profile selector */}
+      <select
+        className="profile-select"
+        value={currentProfile}
+        onChange={(e) => onProfileChange(e.target.value)}
+        style={{ fontSize: 11, height: 36, padding: '4px 8px' }}
+      >
+        {profileIds.map(id => {
+          const profile = getProfile(id)
+          return (
+            <option key={id} value={id}>
+              {profile.name}
+            </option>
+          )
+        })}
+      </select>
     </div>
   )
 }

@@ -1,24 +1,23 @@
 import { useRef, useEffect, useState, useCallback } from 'react'
 
-// 2D绘图画布 - 支持线段绘制、网格背景、工具切换
-export default function DrawingCanvas({ elements, onAddElement, onSelectElement, selectedId, currentTool, currentProfile, gridSize = 10 }) {
+export default function DrawingCanvas({ elements, onAddElement, onSelectElement, selectedId, currentTool, currentProfile, gridSize = 10, isMobile = false }) {
   const canvasRef = useRef(null)
-  const [drawing, setDrawing] = useState(null)  // 当前正在绘制的临时数据
+  const containerRef = useRef(null)
+  const [drawing, setDrawing] = useState(null)
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 })
+  const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 })
 
-  // 吸附到网格
   const snapToGrid = useCallback((val) => {
     return Math.round(val / gridSize) * gridSize
   }, [gridSize])
 
-  // 计算线段长度（像素→毫米，1px = 1mm简化）
   const calcLength = useCallback((x1, y1, x2, y2) => {
     return Math.round(Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2))
   }, [])
 
-  // 绘制网格背景
+  // Draw grid with new design colors
   const drawGrid = useCallback((ctx, width, height) => {
-    ctx.strokeStyle = '#1a2a3e'
+    ctx.strokeStyle = '#1E1E2E'
     ctx.lineWidth = 0.5
 
     for (let x = 0; x < width; x += gridSize) {
@@ -34,8 +33,8 @@ export default function DrawingCanvas({ elements, onAddElement, onSelectElement,
       ctx.stroke()
     }
 
-    // 每100px绘制粗线
-    ctx.strokeStyle = '#2a3a4e'
+    // Major grid lines every 100px
+    ctx.strokeStyle = '#2A2A3E'
     ctx.lineWidth = 1
     for (let x = 0; x < width; x += 100) {
       ctx.beginPath()
@@ -51,11 +50,11 @@ export default function DrawingCanvas({ elements, onAddElement, onSelectElement,
     }
   }, [gridSize])
 
-  // 绘制所有图元
+  // Draw elements with new design colors
   const drawElements = useCallback((ctx) => {
     elements.forEach(el => {
       const isSelected = el.id === selectedId
-      ctx.strokeStyle = isSelected ? '#00d4ff' : '#e0e0e0'
+      ctx.strokeStyle = isSelected ? '#3B82F6' : '#F0F0F5'
       ctx.lineWidth = isSelected ? 3 : 2
 
       if (el.type === 'line') {
@@ -64,8 +63,8 @@ export default function DrawingCanvas({ elements, onAddElement, onSelectElement,
         ctx.lineTo(el.x2, el.y2)
         ctx.stroke()
 
-        // 端点标记
-        ctx.fillStyle = isSelected ? '#00d4ff' : '#888'
+        // Endpoints
+        ctx.fillStyle = isSelected ? '#3B82F6' : '#8888A0'
         ctx.beginPath()
         ctx.arc(el.x1, el.y1, 4, 0, Math.PI * 2)
         ctx.fill()
@@ -73,11 +72,11 @@ export default function DrawingCanvas({ elements, onAddElement, onSelectElement,
         ctx.arc(el.x2, el.y2, 4, 0, Math.PI * 2)
         ctx.fill()
 
-        // 长度标注
+        // Length label
         const midX = (el.x1 + el.x2) / 2
         const midY = (el.y1 + el.y2) / 2
-        ctx.fillStyle = '#00d4ff'
-        ctx.font = '12px sans-serif'
+        ctx.fillStyle = '#3B82F6'
+        ctx.font = '12px "SF Mono", "Menlo", monospace'
         ctx.fillText(`${el.length}mm`, midX + 8, midY - 8)
       } else if (el.type === 'rect') {
         ctx.beginPath()
@@ -87,10 +86,10 @@ export default function DrawingCanvas({ elements, onAddElement, onSelectElement,
     })
   }, [elements, selectedId])
 
-  // 绘制正在绘制中的临时图元
+  // Draw in-progress element
   const drawDrawing = useCallback((ctx) => {
     if (!drawing) return
-    ctx.strokeStyle = '#00d4ff'
+    ctx.strokeStyle = '#3B82F6'
     ctx.lineWidth = 2
     ctx.setLineDash([5, 5])
 
@@ -104,7 +103,7 @@ export default function DrawingCanvas({ elements, onAddElement, onSelectElement,
     ctx.setLineDash([])
   }, [drawing])
 
-  // 完整重绘
+  // Full redraw
   const redraw = useCallback(() => {
     const canvas = canvasRef.current
     if (!canvas) return
@@ -120,31 +119,64 @@ export default function DrawingCanvas({ elements, onAddElement, onSelectElement,
     redraw()
   }, [redraw])
 
-  // Canvas尺寸自适应
+  // Canvas resize — listen to window resize and container changes
   useEffect(() => {
     const canvas = canvasRef.current
-    if (!canvas) return
-    const parent = canvas.parentElement
-    canvas.width = parent.clientWidth
-    canvas.height = parent.clientHeight
-    redraw()
+    const container = containerRef.current
+    if (!canvas || !container) return
+
+    const resizeCanvas = () => {
+      const w = container.clientWidth
+      const h = container.clientHeight
+      canvas.width = w
+      canvas.height = h
+      setCanvasSize({ width: w, height: h })
+      redraw()
+    }
+
+    resizeCanvas()
+
+    const resizeObserver = new ResizeObserver(resizeCanvas)
+    resizeObserver.observe(container)
+
+    window.addEventListener('resize', resizeCanvas)
+
+    return () => {
+      resizeObserver.disconnect()
+      window.removeEventListener('resize', resizeCanvas)
+    }
   }, [redraw])
 
-  // 鼠标事件处理
-  const handleClick = useCallback((e) => {
+  // Get coordinates from mouse or touch event
+  const getCoords = useCallback((e) => {
     const canvas = canvasRef.current
     const rect = canvas.getBoundingClientRect()
-    const rawX = e.clientX - rect.left
-    const rawY = e.clientY - rect.top
-    const x = snapToGrid(rawX)
-    const y = snapToGrid(rawY)
+    let clientX, clientY
+
+    if (e.touches && e.touches.length > 0) {
+      clientX = e.touches[0].clientX
+      clientY = e.touches[0].clientY
+    } else if (e.changedTouches && e.changedTouches.length > 0) {
+      clientX = e.changedTouches[0].clientX
+      clientY = e.changedTouches[0].clientY
+    } else {
+      clientX = e.clientX
+      clientY = e.clientY
+    }
+
+    const rawX = clientX - rect.left
+    const rawY = clientY - rect.top
+    return { rawX, rawY, x: snapToGrid(rawX), y: snapToGrid(rawY) }
+  }, [snapToGrid])
+
+  // Handle click/tap
+  const handlePointerDown = useCallback((e) => {
+    const { rawX, rawY, x, y } = getCoords(e)
 
     if (currentTool === 'line') {
       if (!drawing) {
-        // 第一次点击：设置起点
         setDrawing({ type: 'line', x1: x, y1: y, x2: x, y2: y })
       } else {
-        // 第二次点击：完成线段
         const length = calcLength(drawing.x1, drawing.y1, x, y)
         if (length > 0) {
           onAddElement({
@@ -161,9 +193,8 @@ export default function DrawingCanvas({ elements, onAddElement, onSelectElement,
         setDrawing(null)
       }
     } else if (currentTool === 'select') {
-      // 选择模式：查找最近的图元
       let found = null
-      let minDist = 10
+      let minDist = isMobile ? 20 : 10 // larger hit area on mobile
       elements.forEach(el => {
         if (el.type === 'line') {
           const midX = (el.x1 + el.x2) / 2
@@ -177,9 +208,8 @@ export default function DrawingCanvas({ elements, onAddElement, onSelectElement,
       })
       onSelectElement(found)
     } else if (currentTool === 'delete') {
-      // 删除模式：点击删除最近图元
       let found = null
-      let minDist = 15
+      let minDist = isMobile ? 25 : 15
       elements.forEach(el => {
         if (el.type === 'line') {
           const midX = (el.x1 + el.x2) / 2
@@ -192,45 +222,76 @@ export default function DrawingCanvas({ elements, onAddElement, onSelectElement,
         }
       })
       if (found) {
-        onAddElement(null, found)  // null表示删除
+        onAddElement(null, found)
       }
     }
-  }, [currentTool, drawing, currentProfile, elements, snapToGrid, calcLength, onAddElement, onSelectElement])
+  }, [currentTool, drawing, currentProfile, elements, isMobile, snapToGrid, calcLength, onAddElement, onSelectElement, getCoords])
 
-  const handleMouseMove = useCallback((e) => {
-    const canvas = canvasRef.current
-    const rect = canvas.getBoundingClientRect()
-    const x = snapToGrid(e.clientX - rect.left)
-    const y = snapToGrid(e.clientY - rect.top)
+  // Handle mouse/touch move
+  const handlePointerMove = useCallback((e) => {
+    const { x, y } = getCoords(e)
     setMousePos({ x, y })
 
     if (drawing && currentTool === 'line') {
       setDrawing(prev => ({ ...prev, x2: x, y2: y }))
     }
-  }, [drawing, currentTool, snapToGrid])
+  }, [drawing, currentTool, getCoords])
 
-  // 右键或Escape取消绘制
+  // Cancel drawing
   const handleContextMenu = useCallback((e) => {
     e.preventDefault()
     setDrawing(null)
   }, [])
 
+  // Touch cancel (double tap to cancel)
+  const handleTouchCancel = useCallback(() => {
+    setDrawing(null)
+  }, [])
+
   return (
-    <div className="relative w-full h-full bg-bg overflow-hidden">
+    <div ref={containerRef} style={{
+      position: 'relative',
+      width: '100%',
+      height: '100%',
+      background: '#0A0A0F',
+      overflow: 'hidden',
+      touchAction: 'none', // prevent browser gestures on canvas
+    }}>
       <canvas
         ref={canvasRef}
-        className="cursor-crosshair"
-        onClick={handleClick}
-        onMouseMove={handleMouseMove}
+        style={{
+          cursor: currentTool === 'select' ? 'pointer' : 'crosshair',
+          display: 'block',
+          width: '100%',
+          height: '100%',
+        }}
+        onMouseDown={handlePointerDown}
+        onMouseMove={handlePointerMove}
         onContextMenu={handleContextMenu}
+        onTouchStart={handlePointerDown}
+        onTouchMove={handlePointerMove}
+        onTouchEnd={handleTouchCancel}
       />
-      {/* 坐标提示 */}
-      <div className="absolute bottom-2 left-2 text-xs text-text-secondary bg-card px-2 py-1 rounded">
+      {/* Coordinate display */}
+      <div style={{
+        position: 'absolute', bottom: 8, left: 8,
+        fontSize: 12, color: '#8888A0',
+        background: 'rgba(20,20,31,0.8)',
+        padding: '4px 8px',
+        borderRadius: 6,
+        fontFamily: '"SF Mono", "Menlo", monospace',
+      }}>
         X: {mousePos.x} Y: {mousePos.y}
       </div>
-      {/* 绘制提示 */}
+      {/* Drawing hint */}
       {drawing && currentTool === 'line' && (
-        <div className="absolute top-2 left-2 text-xs text-accent bg-card px-2 py-1 rounded">
+        <div style={{
+          position: 'absolute', top: 8, left: 8,
+          fontSize: 14, color: '#3B82F6',
+          background: 'rgba(20,20,31,0.8)',
+          padding: '4px 8px',
+          borderRadius: 6,
+        }}>
           点击终点完成线段 · 右键取消
         </div>
       )}
