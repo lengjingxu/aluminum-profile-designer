@@ -1,5 +1,5 @@
 import { getProfileIds, getProfile } from '../../lib/aluminum-profiles'
-import { MousePointer2, Minus, Square, Trash2, Undo2, Redo2, Rotate3d, Grid3x3 } from 'lucide-react'
+import { MousePointer2, Minus, Square, Trash2, Undo2, Redo2, Rotate3d, Grid3x3, Eye, LayoutTemplate } from 'lucide-react'
 
 export default function Toolbar({
   currentTool, onToolChange,
@@ -8,6 +8,8 @@ export default function Toolbar({
   viewMode, onViewModeChange,
   canUndo, canRedo,
   isMobile = false,
+  mode = 'draw', onModeChange,
+  onTemplateClick,
 }) {
   const tools = [
     { id: 'select', label: '选择', Icon: MousePointer2 },
@@ -19,7 +21,6 @@ export default function Toolbar({
   const profileIds = getProfileIds()
 
   if (isMobile) {
-    // Mobile: horizontal bottom bar — tools only (profile in sheet)
     return (
       <>
         {tools.map(tool => (
@@ -30,6 +31,7 @@ export default function Toolbar({
             title={tool.label}
           >
             <tool.Icon size={20} />
+            <span>{tool.label}</span>
           </button>
         ))}
         <button
@@ -38,6 +40,7 @@ export default function Toolbar({
           title="2D视图"
         >
           <Grid3x3 size={20} />
+          <span>2D</span>
         </button>
         <button
           className={`tool-btn ${viewMode === '3d' ? 'active' : ''}`}
@@ -45,9 +48,30 @@ export default function Toolbar({
           title="3D视图"
         >
           <Rotate3d size={20} />
+          <span>3D</span>
         </button>
+        {/* Preview mode switch */}
         <button
-          className={`tool-btn ${!canUndo ? '' : ''}`}
+          className={`tool-btn ${mode === 'view' ? 'active' : ''}`}
+          onClick={() => onModeChange && onModeChange(mode === 'view' ? 'draw' : 'view')}
+          title="3D预览模式"
+        >
+          <Eye size={20} />
+          <span>预览</span>
+        </button>
+        {/* Template button */}
+        {onTemplateClick && (
+          <button
+            className="tool-btn"
+            onClick={onTemplateClick}
+            title="模板"
+          >
+            <LayoutTemplate size={20} />
+            <span>模板</span>
+          </button>
+        )}
+        <button
+          className="tool-btn"
           onClick={onUndo}
           disabled={!canUndo}
           title="撤销"
@@ -68,10 +92,9 @@ export default function Toolbar({
     )
   }
 
-  // Desktop: vertical sidebar with labels and profile selector
+  // Desktop: vertical sidebar
   return (
     <div className="desktop-toolbar">
-      {/* Tool buttons */}
       {tools.map(tool => (
         <button
           key={tool.id}
@@ -80,21 +103,19 @@ export default function Toolbar({
           title={tool.label}
         >
           <tool.Icon size={18} />
-          <span style={{ fontSize: 10 }}>{tool.label}</span>
+          <span>{tool.label}</span>
         </button>
       ))}
 
-      {/* Divider */}
-      <div style={{ height: 1, background: '#2A2A3E', margin: '4px 0' }} />
+      <div style={{ height: 1, background: '#2E2E38', margin: '4px 0' }} />
 
-      {/* View mode */}
       <button
         className={`tool-btn ${viewMode === '2d' ? 'active' : ''}`}
         onClick={() => onViewModeChange('2d')}
         title="2D视图"
       >
         <Grid3x3 size={18} />
-        <span style={{ fontSize: 10 }}>2D</span>
+        <span>2D</span>
       </button>
       <button
         className={`tool-btn ${viewMode === '3d' ? 'active' : ''}`}
@@ -102,13 +123,33 @@ export default function Toolbar({
         title="3D视图"
       >
         <Rotate3d size={18} />
-        <span style={{ fontSize: 10 }}>3D</span>
+        <span>3D</span>
       </button>
 
-      {/* Divider */}
-      <div style={{ height: 1, background: '#2A2A3E', margin: '4px 0' }} />
+      {/* Preview mode switch */}
+      <button
+        className={`tool-btn ${mode === 'view' ? 'active' : ''}`}
+        onClick={() => onModeChange && onModeChange(mode === 'view' ? 'draw' : 'view')}
+        title="3D预览模式"
+      >
+        <Eye size={18} />
+        <span>预览</span>
+      </button>
 
-      {/* Undo/Redo */}
+      {/* Template button */}
+      {onTemplateClick && (
+        <button
+          className="tool-btn"
+          onClick={onTemplateClick}
+          title="选择模板"
+        >
+          <LayoutTemplate size={18} />
+          <span>模板</span>
+        </button>
+      )}
+
+      <div style={{ height: 1, background: '#2E2E38', margin: '4px 0' }} />
+
       <button
         className="tool-btn"
         onClick={onUndo}
@@ -117,7 +158,7 @@ export default function Toolbar({
         style={{ opacity: canUndo ? 1 : 0.4 }}
       >
         <Undo2 size={18} />
-        <span style={{ fontSize: 10 }}>撤销</span>
+        <span>撤销</span>
       </button>
       <button
         className="tool-btn"
@@ -127,13 +168,11 @@ export default function Toolbar({
         style={{ opacity: canRedo ? 1 : 0.4 }}
       >
         <Redo2 size={18} />
-        <span style={{ fontSize: 10 }}>重做</span>
+        <span>重做</span>
       </button>
 
-      {/* Divider */}
-      <div style={{ height: 1, background: '#2A2A3E', margin: '4px 0' }} />
+      <div style={{ height: 1, background: '#2E2E38', margin: '4px 0' }} />
 
-      {/* Profile selector */}
       <select
         className="profile-select"
         value={currentProfile}

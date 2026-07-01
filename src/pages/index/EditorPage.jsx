@@ -5,8 +5,9 @@ import Viewer3D from '../../components/canvas-3d/Viewer3D'
 import PropertyPanel from '../../components/property-panel/PropertyPanel'
 import MaterialList from '../../components/material-list/MaterialList'
 import { ALUMINUM_PROFILES } from '../../lib/aluminum-profiles'
+import { TEMPLATES, TEMPLATE_IDS, getTemplate } from '../../lib/templates'
 import { saveDesign, generateId } from '../../utils/storage'
-import { Save, Trash2, ChevronUp, X, Layers, ClipboardList } from 'lucide-react'
+import { Save, Trash2, Layers, ClipboardList, X, Eye, Pencil, LayoutTemplate, ArrowLeft } from 'lucide-react'
 
 export default function EditorPage({ isMobile }) {
   const [elements, setElements] = useState([])
@@ -16,8 +17,10 @@ export default function EditorPage({ isMobile }) {
   const [viewMode, setViewMode] = useState('2d')
   const [history, setHistory] = useState([])
   const [future, setFuture] = useState([])
-  const [sheetOpen, setSheetOpen] = useState(false) // mobile bottom sheet
-  const [sheetTab, setSheetTab] = useState('property') // 'property' | 'material'
+  const [sheetOpen, setSheetOpen] = useState(false)
+  const [sheetTab, setSheetTab] = useState('property')
+  const [mode, setMode] = useState('draw') // 'draw' | 'view'
+  const [showTemplateModal, setShowTemplateModal] = useState(false)
 
   const handleAddElement = useCallback((newElement, deleteId) => {
     if (deleteId) {
@@ -67,7 +70,7 @@ export default function EditorPage({ isMobile }) {
       updatedAt: Date.now(),
     }
     saveDesign(designData)
-    alert('设计已保存!')
+    alert('设计已保存')
   }, [elements])
 
   const handleClear = useCallback(() => {
@@ -78,15 +81,149 @@ export default function EditorPage({ isMobile }) {
     if (isMobile) setSheetOpen(false)
   }, [elements, isMobile])
 
-  // Tool hint text
+  const handleLoadTemplate = useCallback((templateId) => {
+    const template = getTemplate(templateId)
+    if (!template) return
+
+    // Save current state to history
+    setHistory(h => [...h, [...elements]])
+    setFuture([])
+
+    // Load template elements with new IDs
+    const newElements = template.elements.map(el => ({
+      ...el,
+      id: 'el-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6),
+    }))
+
+    setElements(newElements)
+    setCurrentProfile(template.profile)
+    setShowTemplateModal(false)
+    setMode('draw')
+  }, [elements])
+
   const toolHint =
     currentTool === 'line' ? '点击画布绘制线段起点，再次点击完成线段' :
     currentTool === 'select' ? '点击线段选中查看属性' :
     currentTool === 'delete' ? '点击线段删除' :
-    currentTool === 'rect' ? '矩形工具开发中...' : ''
+    currentTool === 'rect' ? '点击画布绘制矩形起点，再次点击完成矩形' : ''
+
+  // ===== TEMPLATE MODAL =====
+  const TemplateModal = () => (
+    <>
+      {/* Backdrop */}
+      <div
+        style={{
+          position: 'fixed', inset: 0,
+          background: 'rgba(0,0,0,0.7)',
+          zIndex: 200,
+        }}
+        onClick={() => setShowTemplateModal(false)}
+      />
+      {/* Modal card */}
+      <div
+        style={{
+          position: 'fixed',
+          top: '50%', left: '50%',
+          transform: 'translate(-50%,-50%)',
+          background: '#1A1A1F',
+          border: '1px solid #2E2E38',
+          borderRadius: 14,
+          padding: 20,
+          maxWidth: 400,
+          width: '90%',
+          maxHeight: '80dvh',
+          overflowY: 'auto',
+          zIndex: 201,
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
+          <LayoutTemplate size={20} style={{ color: '#ECECEE' }} />
+          <span style={{ fontSize: 18, fontWeight: 600, color: '#ECECEE', marginLeft: 8 }}>
+            选择模板
+          </span>
+          <div style={{ flex: 1 }} />
+          <button
+            style={{ background: 'none', border: 'none', color: '#888892', cursor: 'pointer' }}
+            onClick={() => setShowTemplateModal(false)}
+          >
+            <X size={20} />
+          </button>
+        </div>
+        {TEMPLATE_IDS.map(id => {
+          const t = TEMPLATES[id]
+          return (
+            <div
+              key={id}
+              style={{
+                border: '1px solid #2E2E38',
+                borderRadius: 10,
+                padding: 14,
+                marginBottom: 10,
+                cursor: 'pointer',
+                transition: 'border-color 0.2s',
+              }}
+              onClick={() => handleLoadTemplate(id)}
+              onMouseEnter={e => e.currentTarget.style.borderColor = '#ECECEE'}
+              onMouseLeave={e => e.currentTarget.style.borderColor = '#2E2E38'}
+            >
+              <div style={{ fontSize: 15, fontWeight: 600, color: '#ECECEE' }}>
+                {t.name}
+              </div>
+              <div style={{ fontSize: 12, color: '#888892', marginTop: 4 }}>
+                {t.description}
+              </div>
+              <div style={{ fontSize: 11, color: '#555560', marginTop: 6 }}>
+                型材: {t.profile} · 图元: {t.elements.length}个
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </>
+  )
+
+  // ===== 3D VIEW TOP BAR =====
+  const View3DTopBar = () => (
+    <div style={{
+      display: 'flex', alignItems: 'center',
+      padding: '8px 16px',
+      background: '#1A1A1F',
+      borderBottom: '1px solid #2E2E38',
+      height: 44,
+    }}>
+      <Eye size={18} style={{ color: '#ECECEE' }} />
+      <span style={{ fontSize: 15, fontWeight: 600, color: '#ECECEE', marginLeft: 8 }}>
+        3D 预览
+      </span>
+      <div style={{ flex: 1 }} />
+      <button
+        style={{
+          display: 'flex', alignItems: 'center', gap: 6,
+          background: '#ECECEE', color: '#0C0C0F',
+          border: 'none', borderRadius: 8,
+          padding: '6px 14px', fontSize: 13, fontWeight: 600,
+          cursor: 'pointer',
+        }}
+        onClick={() => setMode('draw')}
+      >
+        <Pencil size={14} /> 返回编辑
+      </button>
+    </div>
+  )
 
   // ===== DESKTOP LAYOUT =====
   if (!isMobile) {
+    if (mode === 'view') {
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: '#0C0C0F' }}>
+          <View3DTopBar />
+          <div style={{ flex: 1 }}>
+            <Viewer3D elements={elements} profileSpecs={ALUMINUM_PROFILES} />
+          </div>
+        </div>
+      )
+    }
+
     return (
       <div className="desktop-layout">
         <Toolbar
@@ -101,6 +238,9 @@ export default function EditorPage({ isMobile }) {
           canUndo={history.length > 0}
           canRedo={future.length > 0}
           isMobile={false}
+          mode={mode}
+          onModeChange={setMode}
+          onTemplateClick={() => setShowTemplateModal(true)}
         />
 
         <div className="desktop-canvas-area">
@@ -110,6 +250,9 @@ export default function EditorPage({ isMobile }) {
             <div className="header-stat">
               图元数量: {elements.length}
             </div>
+            <button className="header-btn" onClick={() => setShowTemplateModal(true)} title="选择模板">
+              <LayoutTemplate size={16} /> 模板
+            </button>
             <button className="header-btn header-btn-primary" onClick={handleSave}>
               <Save size={16} /> 保存
             </button>
@@ -148,22 +291,49 @@ export default function EditorPage({ isMobile }) {
             onUpdateElement={() => {}}
             isMobile={false}
           />
-          <div style={{ borderTop: '1px solid #2A2A3E' }}>
+          <div style={{ borderTop: '1px solid #2E2E38' }}>
             <MaterialList elements={elements} isMobile={false} />
           </div>
         </div>
+
+        {showTemplateModal && <TemplateModal />}
       </div>
     )
   }
 
   // ===== MOBILE LAYOUT =====
+  if (mode === 'view') {
+    return (
+      <div className="mobile-layout">
+        <div className="mobile-top-bar">
+          <Eye size={18} style={{ color: '#ECECEE' }} />
+          <span style={{ fontSize: 15, fontWeight: 600, color: '#ECECEE', marginLeft: 8 }}>
+            3D 预览
+          </span>
+          <div className="flex-1" />
+          <button
+            className="header-btn header-btn-primary"
+            onClick={() => setMode('draw')}
+          >
+            <Pencil size={16} /> 编辑
+          </button>
+        </div>
+        <div className="mobile-canvas-area" style={{ flex: 1 }}>
+          <Viewer3D elements={elements} profileSpecs={ALUMINUM_PROFILES} />
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="mobile-layout">
-      {/* Top bar */}
       <div className="mobile-top-bar">
         <div className="header-title">铝型材设计器</div>
         <div className="flex-1" />
-        <div className="header-stat font-mono-val">{elements.length}</div>
+        <div className="header-stat font-mono">{elements.length}</div>
+        <button className="header-btn" onClick={() => setShowTemplateModal(true)} title="模板">
+          <LayoutTemplate size={16} />
+        </button>
         <button className="header-btn header-btn-primary" onClick={handleSave}>
           <Save size={16} />
         </button>
@@ -172,7 +342,6 @@ export default function EditorPage({ isMobile }) {
         </button>
       </div>
 
-      {/* Canvas */}
       <div className="mobile-canvas-area">
         {viewMode === '2d' ? (
           <DrawingCanvas
@@ -190,11 +359,10 @@ export default function EditorPage({ isMobile }) {
             profileSpecs={ALUMINUM_PROFILES}
           />
         )}
-        {/* Hint overlay */}
         <div style={{
           position: 'absolute', bottom: 8, left: 8,
-          fontSize: 12, color: '#8888A0',
-          background: 'rgba(20,20,31,0.8)',
+          fontSize: 12, color: '#888892',
+          background: 'rgba(26,26,31,0.85)',
           padding: '4px 8px',
           borderRadius: 6,
         }}>
@@ -202,7 +370,6 @@ export default function EditorPage({ isMobile }) {
         </div>
       </div>
 
-      {/* Bottom toolbar */}
       <div className="mobile-bottom-bar">
         <Toolbar
           currentTool={currentTool}
@@ -216,23 +383,10 @@ export default function EditorPage({ isMobile }) {
           canUndo={history.length > 0}
           canRedo={future.length > 0}
           isMobile={true}
+          mode={mode}
+          onModeChange={setMode}
+          onTemplateClick={() => setShowTemplateModal(true)}
         />
-
-        {/* Sheet trigger buttons */}
-        <button
-          className="tool-btn"
-          onClick={() => { setSheetTab('property'); setSheetOpen(true) }}
-          title="属性"
-        >
-          <Layers size={20} />
-        </button>
-        <button
-          className="tool-btn"
-          onClick={() => { setSheetTab('material'); setSheetOpen(true) }}
-          title="材料清单"
-        >
-          <ClipboardList size={20} />
-        </button>
       </div>
 
       {/* Bottom Sheet */}
@@ -275,6 +429,8 @@ export default function EditorPage({ isMobile }) {
           <MaterialList elements={elements} isMobile={true} />
         )}
       </div>
+
+      {showTemplateModal && <TemplateModal />}
     </div>
   )
 }
