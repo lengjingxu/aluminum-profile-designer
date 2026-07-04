@@ -1,5 +1,5 @@
-import { getProfile, getProfileName } from '../../lib/aluminum-profiles'
-import { Layers, Ruler, Box, MapPin, AlignCenterHorizontal, AlignCenterVertical, AlignHorizontalDistributeCenter, AlignVerticalDistributeCenter, Lock, Unlock, Tag } from 'lucide-react'
+import { getProfile, getProfileName, getProfileIds, ALUMINUM_PROFILES } from '../../lib/aluminum-profiles'
+import { Layers, Ruler, Box, MapPin, AlignCenterHorizontal, AlignCenterVertical, AlignHorizontalDistributeCenter, AlignVerticalDistributeCenter, Lock, Unlock, Tag, TrendingUp } from 'lucide-react'
 
 export default function PropertyPanel({ selectedElement, onUpdateElement, onAlign, isMobile = false }) {
   if (!selectedElement) {
@@ -49,10 +49,39 @@ export default function PropertyPanel({ selectedElement, onUpdateElement, onAlig
         </div>
       )}
 
-      {/* Profile spec */}
+      {/* T08: Profile spec — switchable dropdown for cost simulation */}
       <div>
         <div className="panel-label">型材规格</div>
-        <div className="panel-value">{profile ? getProfileName(el.profileSpec) : el.profileSpec}</div>
+        {onUpdateElement ? (
+          <select
+            value={el.profileSpec || '4040'}
+            onChange={e => onUpdateElement(el.id, { profileSpec: e.target.value })}
+            style={{
+              width: '100%',
+              background: '#111114',
+              border: '1px solid #2E2E38',
+              borderRadius: 6,
+              padding: '6px 8px',
+              color: '#ECECEE',
+              fontSize: 13,
+              fontFamily: 'inherit',
+              outline: 'none',
+              cursor: 'pointer',
+              boxSizing: 'border-box',
+            }}
+          >
+            {getProfileIds().map(id => {
+              const p = ALUMINUM_PROFILES[id]
+              return (
+                <option key={id} value={id}>
+                  {p.name} ({p.width}×{p.height}mm) — {p.pricePerMeter}元/m
+                </option>
+              )
+            })}
+          </select>
+        ) : (
+          <div className="panel-value">{profile ? getProfileName(el.profileSpec) : el.profileSpec}</div>
+        )}
       </div>
 
       {/* Section info */}
@@ -82,6 +111,59 @@ export default function PropertyPanel({ selectedElement, onUpdateElement, onAlig
           </div>
         </>
       )}
+
+      {/* T08: Cost simulation — show delta vs. 4040 baseline */}
+      {onUpdateElement && el.type === 'line' && (() => {
+        const baseProfile = ALUMINUM_PROFILES['4040']
+        const currentProfile = profile
+        if (!currentProfile || !baseProfile) return null
+        const currentCost = (el.length / 1000) * currentProfile.pricePerMeter
+        const baseCost = (el.length / 1000) * baseProfile.pricePerMeter
+        const delta = currentCost - baseCost
+        const pct = baseCost > 0 ? (delta / baseCost) * 100 : 0
+        return (
+          <div style={{
+            borderTop: '1px solid #2E2E38',
+            paddingTop: 10,
+            background: '#111114',
+            border: '1px solid #2E2E38',
+            borderRadius: 6,
+            padding: 10,
+          }}>
+            <div className="panel-label" style={{ marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
+              <TrendingUp size={12} style={{ verticalAlign: 'middle' }} />
+              成本模拟（相对 4040 基准）
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
+              <span style={{ color: '#888892' }}>基准 (4040)</span>
+              <span className="panel-value-mono">{baseCost.toFixed(2)} 元</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
+              <span style={{ color: '#888892' }}>当前规格</span>
+              <span className="panel-value-mono" style={{ color: '#ECECEE' }}>
+                {currentCost.toFixed(2)} 元
+              </span>
+            </div>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              fontSize: 13,
+              borderTop: '1px solid #2E2E38',
+              paddingTop: 6,
+              marginTop: 4,
+            }}>
+              <span style={{ color: '#888892' }}>差异</span>
+              <span style={{
+                fontFamily: '"SF Mono","Menlo",monospace',
+                color: delta > 0 ? '#FFB36B' : delta < 0 ? '#7FE0A1' : '#ECECEE',
+                fontWeight: 600,
+              }}>
+                {delta > 0 ? '+' : ''}{delta.toFixed(2)} 元 ({pct > 0 ? '+' : ''}{pct.toFixed(1)}%)
+              </span>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Coordinates */}
       <div style={{ borderTop: '1px solid #2E2E38', paddingTop: 10 }}>
