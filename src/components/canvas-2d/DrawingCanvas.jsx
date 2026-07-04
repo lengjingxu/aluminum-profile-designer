@@ -15,7 +15,7 @@ const distToSegment = (px, py, x1, y1, x2, y2) => {
   return Math.sqrt((px - xx) ** 2 + (py - yy) ** 2)
 }
 
-export default function DrawingCanvas({ elements, onAddElement, onSelectElement, selectedId, currentTool, currentProfile, gridSize = 10, isMobile = false }) {
+export default function DrawingCanvas({ elements, onAddElement, onSelectElement, selectedId, selectedIds: selectedIdsProp, currentTool, currentProfile, gridSize = 10, isMobile = false }) {
   const canvasRef = useRef(null)
   const containerRef = useRef(null)
   const [drawing, setDrawing] = useState(null)
@@ -110,8 +110,9 @@ export default function DrawingCanvas({ elements, onAddElement, onSelectElement,
 
   // Draw elements with soft black-white colors
   const drawElements = useCallback((ctx) => {
+    const selectedSet = new Set(selectedIdsProp && selectedIdsProp.length ? selectedIdsProp : (selectedId ? [selectedId] : []))
     elements.forEach(el => {
-      const isSelected = el.id === selectedId
+      const isSelected = selectedSet.has(el.id)
       ctx.strokeStyle = isSelected ? '#FFFFFF' : '#D0D0D8'
       ctx.lineWidth = isSelected ? 3 : 2
 
@@ -185,7 +186,7 @@ export default function DrawingCanvas({ elements, onAddElement, onSelectElement,
         }
       }
     })
-  }, [elements, selectedId, drawProfileCrossSection])
+  }, [elements, selectedId, selectedIdsProp, drawProfileCrossSection])
 
   // Draw in-progress element
   const drawDrawing = useCallback((ctx) => {
@@ -210,6 +211,18 @@ export default function DrawingCanvas({ elements, onAddElement, onSelectElement,
       ctx.fillRect(rx, ry, rw, rh)
 
       // Dashed outline
+      ctx.strokeStyle = '#ECECEE'
+      ctx.lineWidth = 1
+      ctx.strokeRect(rx, ry, rw, rh)
+    } else if (drawing.type === 'selection') {
+      // T02: Box selection preview
+      const rx = Math.min(drawing.x1, drawing.x2)
+      const ry = Math.min(drawing.y1, drawing.y2)
+      const rw = Math.abs(drawing.x2 - drawing.x1)
+      const rh = Math.abs(drawing.y2 - drawing.y1)
+
+      ctx.fillStyle = 'rgba(236,236,238,0.06)'
+      ctx.fillRect(rx, ry, rw, rh)
       ctx.strokeStyle = '#ECECEE'
       ctx.lineWidth = 1
       ctx.strokeRect(rx, ry, rw, rh)
@@ -357,7 +370,13 @@ export default function DrawingCanvas({ elements, onAddElement, onSelectElement,
           }
         }
       })
-      onSelectElement(found)
+      if (found) {
+        // Click on element: select single
+        onSelectElement(found, [])
+      } else {
+        // T02: Click on empty area — start box selection
+        setDrawing({ type: 'selection', x1: x, y1: y, x2: x, y2: y })
+      }
     } else if (currentTool === 'delete') {
       let found = null
       let minDist = isMobile ? 20 : 12
@@ -401,9 +420,47 @@ export default function DrawingCanvas({ elements, onAddElement, onSelectElement,
         setDrawing(prev => ({ ...prev, x2: x, y2: y }))
       } else if (currentTool === 'rect') {
         setDrawing(prev => ({ ...prev, x2: x, y2: y }))
+      } else if (drawing.type === 'selection') {
+        // T02: Update selection box endpoint
+        setDrawing(prev => ({ ...prev, x2: x, y2: y }))
       }
     }
   }, [drawing, currentTool, getCoords])
+
+  // T02: handlePointerUp - finalize box selection
+  const handlePointerUp = useCallback((e) => {
+    if (!drawing) return
+    if (drawing.type !== 'selection') return
+
+    const minX = Math.min(drawing.x1, drawing.x2)
+    const maxX = Math.max(drawing.x1, drawing.x2)
+    const minY = Math.min(drawing.y1, drawing.y2)
+    const maxY = Math.max(drawing.y1, drawing.y2)
+
+    // Only finalize if user actually dragged (selection box has size)
+    const boxW = maxX - minX
+    const boxH = maxY - minY
+    if (boxW > 4 && boxH > 4) {
+      const selected = elements
+        .filter(el => {
+          const midX = (el.x1 + el.x2) / 2
+          const midY = (el.y1 + el.y2) / 2
+          return midX >= minX && midX <= maxX && midY >= minY && midY <= maxY
+        })
+        .map(el => el.id)
+
+      if (selected.length > 0) {
+        // Pass array via second arg
+        onSelectElement(selected[0], selected)
+      } else {
+        onSelectElement(null, [])
+      }
+    } else {
+      // Tiny click on empty area: clear selection
+      onSelectElement(null, [])
+    }
+    setDrawing(null)
+  }, [drawing, elements, onSelectElement])
 
   // Cancel drawing
   const handleContextMenu = useCallback((e) => {
@@ -421,7 +478,12 @@ export default function DrawingCanvas({ elements, onAddElement, onSelectElement,
     ? '点击终点完成线段 · 右键取消'
     : drawing && currentTool === 'rect'
     ? '点击终点完成矩形 · 右键取消'
+    : drawing && drawing.type === 'selection'
+    ? '拖动鼠标框选图元 · 松开完成选择'
     : null
+
+  // T02: Box selection count badge
+  const selectionCount = selectedIdsProp && selectedIdsProp.length ? selectedIdsProp.length : (selectedId ? 1 : 0)
 
   return (
     <div ref={containerRef} style={{
@@ -442,10 +504,11 @@ export default function DrawingCanvas({ elements, onAddElement, onSelectElement,
         }}
         onMouseDown={handlePointerDown}
         onMouseMove={handlePointerMove}
+        onMouseUp={handlePointerUp}
         onContextMenu={handleContextMenu}
         onTouchStart={handlePointerDown}
         onTouchMove={handlePointerMove}
-        onTouchEnd={handleTouchCancel}
+        onTouchEnd={(e) => { handlePointerUp(e); handleTouchCancel() }}
       />
       {/* Coordinate display */}
       <div style={{
@@ -468,6 +531,20 @@ export default function DrawingCanvas({ elements, onAddElement, onSelectElement,
           borderRadius: 6,
         }}>
           {drawingHintText}
+        </div>
+      )}
+      {/* T02: Selection count badge */}
+      {selectionCount > 1 && !drawingHintText && (
+        <div style={{
+          position: 'absolute', top: 8, left: 8,
+          fontSize: 13, color: '#0C0C0F',
+          background: '#ECECEE',
+          padding: '4px 10px',
+          borderRadius: 6,
+          fontWeight: 600,
+          fontFamily: '"SF Mono", "Menlo", monospace',
+        }}>
+          已选中 {selectionCount} 个图元
         </div>
       )}
     </div>

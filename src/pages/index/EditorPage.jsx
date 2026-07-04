@@ -14,6 +14,7 @@ export default function EditorPage({ isMobile }) {
   const [currentTool, setCurrentTool] = useState('line')
   const [currentProfile, setCurrentProfile] = useState('4040')
   const [selectedId, setSelectedId] = useState(null)
+  const [selectedIds, setSelectedIds] = useState([]) // T02: box-selection array
   const [viewMode, setViewMode] = useState('2d')
   const [history, setHistory] = useState([])
   const [future, setFuture] = useState([])
@@ -65,7 +66,7 @@ export default function EditorPage({ isMobile }) {
     setSelectedId(copy.id)
   }, [selectedId, elements, handleAddElement])
 
-  // T01: Keyboard shortcuts for copy/paste/duplicate
+  // T01: Keyboard shortcuts for copy/paste/duplicate + T02: delete selected
   useEffect(() => {
     const handleKeyDown = (e) => {
       // Ignore when typing in input fields
@@ -81,11 +82,19 @@ export default function EditorPage({ isMobile }) {
       } else if (e.ctrlKey && (e.key === 'd' || e.key === 'D')) {
         e.preventDefault()
         handleDuplicate()
+      } else if ((e.key === 'Delete' || e.key === 'Backspace') && (selectedId || selectedIds.length > 0)) {
+        // T02: Delete key removes selection (single or multi)
+        e.preventDefault()
+        handleDeleteSelected()
+      } else if (e.key === 'Escape') {
+        // T02: ESC clears selection / cancels drawing
+        setSelectedId(null)
+        setSelectedIds([])
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [handleCopy, handlePaste, handleDuplicate])
+  }, [handleCopy, handlePaste, handleDuplicate, handleDeleteSelected, selectedId, selectedIds])
 
   const handleAddElement = useCallback((newElement, deleteId) => {
     if (deleteId) {
@@ -101,13 +110,25 @@ export default function EditorPage({ isMobile }) {
     }
   }, [elements])
 
-  const handleSelectElement = useCallback((id) => {
+  const handleSelectElement = useCallback((id, idsArray) => {
     setSelectedId(id)
+    setSelectedIds(idsArray || [])
     if (isMobile && id) {
       setSheetTab('property')
       setSheetOpen(true)
     }
   }, [isMobile])
+
+  // T02: Delete all currently box-selected elements
+  const handleDeleteSelected = useCallback(() => {
+    const ids = selectedIds.length > 1 ? selectedIds : (selectedId ? [selectedId] : [])
+    if (ids.length === 0) return
+    setHistory(h => [...h, [...elements]])
+    setFuture([])
+    setElements(prev => prev.filter(el => !ids.includes(el.id)))
+    setSelectedId(null)
+    setSelectedIds([])
+  }, [selectedIds, selectedId, elements])
 
   const handleUndo = useCallback(() => {
     if (history.length === 0) return
@@ -143,6 +164,7 @@ export default function EditorPage({ isMobile }) {
     setFuture([])
     setElements([])
     setSelectedId(null)
+    setSelectedIds([])
     if (isMobile) setSheetOpen(false)
   }, [elements, isMobile])
 
@@ -338,6 +360,7 @@ export default function EditorPage({ isMobile }) {
                 onAddElement={handleAddElement}
                 onSelectElement={handleSelectElement}
                 selectedId={selectedId}
+                selectedIds={selectedIds}
                 currentTool={currentTool}
                 currentProfile={currentProfile}
                 isMobile={false}
@@ -356,6 +379,41 @@ export default function EditorPage({ isMobile }) {
         </div>
 
         <div className="desktop-right-panel">
+          <div style={{
+            display: 'flex', alignItems: 'center',
+            padding: '8px 12px',
+            background: '#111114',
+            borderBottom: '1px solid #2E2E38',
+            gap: 8,
+          }}>
+            <Layers size={16} style={{ color: '#ECECEE' }} />
+            <span style={{ fontSize: 13, fontWeight: 600, color: '#ECECEE' }}>属性</span>
+            {/* T02: Show selection count + delete button when multiple selected */}
+            {selectedIds.length > 1 && (
+              <>
+                <div style={{ flex: 1 }} />
+                <span style={{
+                  fontSize: 12, color: '#888892',
+                  background: '#1A1A1F', padding: '2px 8px',
+                  borderRadius: 6, fontFamily: '"SF Mono","Menlo",monospace',
+                }}>
+                  {selectedIds.length} 个
+                </span>
+                <button
+                  onClick={handleDeleteSelected}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 4,
+                    background: '#3a1f1f', color: '#FF6B6B',
+                    border: '1px solid #5a2828', borderRadius: 6,
+                    padding: '4px 10px', fontSize: 12, fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  <Trash2 size={12} /> 删除选中
+                </button>
+              </>
+            )}
+          </div>
           <PropertyPanel
             selectedElement={selectedElement}
             onUpdateElement={() => {}}
@@ -419,6 +477,7 @@ export default function EditorPage({ isMobile }) {
             onAddElement={handleAddElement}
             onSelectElement={handleSelectElement}
             selectedId={selectedId}
+            selectedIds={selectedIds}
             currentTool={currentTool}
             currentProfile={currentProfile}
             isMobile={true}
