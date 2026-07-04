@@ -1,13 +1,14 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import Toolbar from '../../components/toolbar/Toolbar'
 import DrawingCanvas from '../../components/canvas-2d/DrawingCanvas'
 import Viewer3D from '../../components/canvas-3d/Viewer3D'
 import PropertyPanel from '../../components/property-panel/PropertyPanel'
 import MaterialList from '../../components/material-list/MaterialList'
 import { ALUMINUM_PROFILES } from '../../lib/aluminum-profiles'
+import { exportCanvasAsPNG } from '../../lib/exporter'
 import { TEMPLATES, TEMPLATE_IDS, getTemplate, resolveTemplate } from '../../lib/templates'
 import { saveDesign, generateId, saveDraft, loadDraft, clearDraft } from '../../utils/storage'
-import { Save, Trash2, Layers, ClipboardList, X, Eye, Pencil, LayoutTemplate, ArrowLeft, ClipboardCopy, ClipboardPaste, AlignCenterHorizontal, AlignCenterVertical, Grid3x3, CloudCheck, CloudOff } from 'lucide-react'
+import { Save, Trash2, Layers, ClipboardList, X, Eye, Pencil, LayoutTemplate, ArrowLeft, ClipboardCopy, ClipboardPaste, AlignCenterHorizontal, AlignCenterVertical, Grid3x3, CloudCheck, CloudOff, ImageDown } from 'lucide-react'
 
 export default function EditorPage({ isMobile }) {
   const [elements, setElements] = useState([])
@@ -28,6 +29,16 @@ export default function EditorPage({ isMobile }) {
   // T15: Auto-save draft state
   const [lastSavedAt, setLastSavedAt] = useState(null)
   const [draftRestored, setDraftRestored] = useState(false)
+
+  // T16: Ref for DrawingCanvas imperative handle
+  const canvasRef = useRef(null)
+
+  // T16: Export canvas as PNG
+  const handleExportPNG = useCallback(() => {
+    const canvas = canvasRef.current?.getCanvas()
+    if (!canvas) return
+    exportCanvasAsPNG(canvas, { filename: `aluminum-design-${Date.now()}.png` })
+  }, [])
 
   // T01: Copy selected element to clipboard
   const handleCopy = useCallback(() => {
@@ -637,11 +648,15 @@ export default function EditorPage({ isMobile }) {
             <button className="header-btn header-btn-danger" onClick={handleClear}>
               <Trash2 size={16} /> 清空
             </button>
+            <button className="header-btn" onClick={handleExportPNG} title="导出为 PNG 图片">
+              <ImageDown size={16} /> 导出图片
+            </button>
           </div>
 
           <div className="flex-1 relative">
             {viewMode === '2d' ? (
               <DrawingCanvas
+                ref={canvasRef}
                 elements={elements}
                 onAddElement={handleAddElement}
                 onSelectElement={handleSelectElement}

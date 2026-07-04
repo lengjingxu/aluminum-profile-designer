@@ -82,3 +82,48 @@ export function exportToCSV(materialList) {
 
   URL.revokeObjectURL(url)
 }
+
+// T16: Export canvas as PNG
+// Renders a fresh snapshot of the source canvas into an offscreen canvas
+// (with a dark background, padding, and timestamp watermark) then triggers download.
+export function exportCanvasAsPNG(sourceCanvas, options = {}) {
+  if (!sourceCanvas) return false
+  const {
+    background = '#0C0C0F',
+    padding = 40,
+    filename = `aluminum-design-${Date.now()}.png`,
+  } = options
+
+  const srcW = sourceCanvas.width
+  const srcH = sourceCanvas.height
+  if (!srcW || !srcH) return false
+
+  const outW = srcW + padding * 2
+  const outH = srcH + padding * 2
+
+  const out = document.createElement('canvas')
+  out.width = outW
+  out.height = outH
+  const ctx = out.getContext('2d')
+
+  // Background
+  ctx.fillStyle = background
+  ctx.fillRect(0, 0, outW, outH)
+
+  // Copy the source canvas as-is (grid + elements + drawing preview)
+  ctx.drawImage(sourceCanvas, padding, padding)
+
+  // Footer watermark
+  ctx.fillStyle = '#888892'
+  ctx.font = '12px "SF Mono", "Menlo", monospace'
+  const ts = new Date().toLocaleString('zh-CN', { hour12: false })
+  ctx.fillText(`Aluminum Profile Designer  ·  ${ts}`, padding, outH - padding / 2)
+
+  // Trigger download
+  const dataUrl = out.toDataURL('image/png')
+  const link = document.createElement('a')
+  link.href = dataUrl
+  link.download = filename
+  link.click()
+  return true
+}

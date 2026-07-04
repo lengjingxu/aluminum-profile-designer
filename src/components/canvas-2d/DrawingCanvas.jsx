@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState, useCallback } from 'react'
+import { useRef, useEffect, useState, useCallback, forwardRef, useImperativeHandle } from 'react'
 import { getProfile } from '../../lib/aluminum-profiles'
 
 // Distance from point (px, py) to segment (x1,y1)-(x2,y2)
@@ -15,7 +15,7 @@ const distToSegment = (px, py, x1, y1, x2, y2) => {
   return Math.sqrt((px - xx) ** 2 + (py - yy) ** 2)
 }
 
-export default function DrawingCanvas({ elements, onAddElement, onSelectElement, selectedId, selectedIds: selectedIdsProp, currentTool, currentProfile, gridSize = 10, isMobile = false }) {
+const DrawingCanvas = forwardRef(function DrawingCanvas({ elements, onAddElement, onSelectElement, selectedId, selectedIds: selectedIdsProp, currentTool, currentProfile, gridSize = 10, isMobile = false }, ref) {
   const canvasRef = useRef(null)
   const containerRef = useRef(null)
   const [drawing, setDrawing] = useState(null)
@@ -335,6 +335,12 @@ export default function DrawingCanvas({ elements, onAddElement, onSelectElement,
     drawElements(ctx)
     drawDrawing(ctx)
   }, [drawGrid, drawElements, drawDrawing])
+
+  // T16: Expose imperative API to parent (exportPNG)
+  useImperativeHandle(ref, () => ({
+    getCanvas: () => canvasRef.current,
+    exportPNG: () => canvasRef.current,
+  }), [])
 
   useEffect(() => {
     redraw()
@@ -815,4 +821,6 @@ export default function DrawingCanvas({ elements, onAddElement, onSelectElement,
       )}
     </div>
   )
-}
+})
+
+export default DrawingCanvas
