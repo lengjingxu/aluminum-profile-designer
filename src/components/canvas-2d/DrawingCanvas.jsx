@@ -185,6 +185,25 @@ export default function DrawingCanvas({ elements, onAddElement, onSelectElement,
         }
       }
 
+      // T05: Text label for the element (annotation like "支撑"/"上轨")
+      if (el.label && el.label.trim()) {
+        const midX = (el.x1 + el.x2) / 2
+        const midY = (el.y1 + el.y2) / 2
+        const labelText = el.label
+        ctx.font = '13px Inter, -apple-system, sans-serif'
+        const labelColor = el.labelColor || '#888892'
+        // Draw subtle background pill for readability
+        const padding = 4
+        const textWidth = ctx.measureText(labelText).width
+        ctx.fillStyle = 'rgba(26,26,31,0.85)'
+        ctx.fillRect(midX + 8 - padding, midY - 22, textWidth + padding * 2, 18)
+        ctx.strokeStyle = '#2E2E38'
+        ctx.lineWidth = 1
+        ctx.strokeRect(midX + 8 - padding, midY - 22, textWidth + padding * 2, 18)
+        ctx.fillStyle = labelColor
+        ctx.fillText(labelText, midX + 8, midY - 10)
+      }
+
       // T04: Lock icon for locked elements
       if (el.locked) {
         const midX = (el.x1 + el.x2) / 2

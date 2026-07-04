@@ -1,5 +1,5 @@
 import { getProfile, getProfileName } from '../../lib/aluminum-profiles'
-import { Layers, Ruler, Box, MapPin, AlignCenterHorizontal, AlignCenterVertical, AlignHorizontalDistributeCenter, AlignVerticalDistributeCenter, Lock, Unlock } from 'lucide-react'
+import { Layers, Ruler, Box, MapPin, AlignCenterHorizontal, AlignCenterVertical, AlignHorizontalDistributeCenter, AlignVerticalDistributeCenter, Lock, Unlock, Tag } from 'lucide-react'
 
 export default function PropertyPanel({ selectedElement, onUpdateElement, onAlign, isMobile = false }) {
   if (!selectedElement) {
@@ -130,6 +130,71 @@ export default function PropertyPanel({ selectedElement, onUpdateElement, onAlig
               <AlignVerticalDistributeCenter size={14} />
               <span>垂直等距</span>
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* T05: Text label / annotation */}
+      {onUpdateElement && (
+        <div style={{ borderTop: '1px solid #2E2E38', paddingTop: 10 }}>
+          <div className="panel-label" style={{ marginBottom: 8 }}>
+            <Tag size={12} style={{ marginRight: 4, verticalAlign: 'middle' }} /> 文字标注
+          </div>
+          <input
+            type="text"
+            placeholder="如：支撑、上轨..."
+            value={el.label || ''}
+            onChange={e => onUpdateElement(el.id, { label: e.target.value })}
+            maxLength={24}
+            style={{
+              width: '100%',
+              background: '#111114',
+              border: '1px solid #2E2E38',
+              borderRadius: 6,
+              padding: '6px 8px',
+              color: '#ECECEE',
+              fontSize: 13,
+              fontFamily: 'inherit',
+              outline: 'none',
+              boxSizing: 'border-box',
+            }}
+          />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
+            <div className="panel-label" style={{ margin: 0 }}>颜色</div>
+            <input
+              type="color"
+              value={el.labelColor || '#888892'}
+              onChange={e => onUpdateElement(el.id, { labelColor: e.target.value })}
+              style={{
+                width: 32,
+                height: 24,
+                border: '1px solid #2E2E38',
+                borderRadius: 4,
+                background: 'transparent',
+                cursor: 'pointer',
+                padding: 0,
+              }}
+            />
+            <span style={{ fontSize: 11, color: '#888892', fontFamily: '"SF Mono","Menlo",monospace' }}>
+              {el.labelColor || '#888892'}
+            </span>
+            {el.label && (
+              <button
+                onClick={() => onUpdateElement(el.id, { label: '', labelColor: '#888892' })}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#888892',
+                  cursor: 'pointer',
+                  fontSize: 11,
+                  padding: '0 4px',
+                  marginLeft: 'auto',
+                }}
+                title="清除标注"
+              >
+                清除
+              </button>
+            )}
           </div>
         </div>
       )}
