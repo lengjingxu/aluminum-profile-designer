@@ -1,14 +1,101 @@
 import { getProfile, getProfileName, getProfileIds, ALUMINUM_PROFILES } from '../../lib/aluminum-profiles'
 import { Layers, Ruler, Box, MapPin, AlignCenterHorizontal, AlignCenterVertical, AlignHorizontalDistributeCenter, AlignVerticalDistributeCenter, Lock, Unlock, Tag, TrendingUp } from 'lucide-react'
+import { t } from '../../lib/i18n'
 
-export default function PropertyPanel({ selectedElement, onUpdateElement, onUpdateCoordinate, onAlign, isMobile = false }) {
+const dict = {
+  zh: {
+    emptyTitle: '未选中任何图元',
+    emptySub: '点击画布上的线段以查看属性',
+    panelTitle: '属性面板',
+    type: '类型', typeLine: '线段', typeRect: '矩形',
+    length: '长度',
+    rectSize: '矩形尺寸（宽×高）',
+    profileSpec: '型材规格',
+    section: '截面尺寸',
+    area: '截面积',
+    weight: '理论重量',
+    unitPrice: '单价',
+    singleCost: '单根成本估算',
+    costSimTitle: '成本模拟（相对 4040 基准）',
+    base: '基准 (4040)',
+    current: '当前规格',
+    diff: '差异',
+    startCoord: '起点坐标 (X1, Y1)',
+    rectStartCoord: '对角起点 (X1, Y1)',
+    endCoord: '终点坐标 (X2, Y2)',
+    rectEndCoord: '对角终点 (X2, Y2)',
+    coordHint: '修改坐标将自动重算线段长度',
+    align: '对齐工具',
+    centerH: '垂直居中', centerV: '水平居中',
+    distributeH: '水平等距', distributeV: '垂直等距',
+    centerHTitle: '垂直居中（画布中心 Y）',
+    centerVTitle: '水平居中（画布中心 X）',
+    distributeHTitle: '水平等距分布（≥3 个）',
+    distributeVTitle: '垂直等距分布（≥3 个）',
+    label: '文字标注',
+    labelPh: '如：支撑、上轨...',
+    color: '颜色',
+    clear: '清除',
+    clearTitle: '清除标注',
+    lockTitle: '锁定状态',
+    locked: '已锁定（按 L 解锁）',
+    unlocked: '未锁定（按 L 锁定）',
+    lockBtnLocked: '解锁此图元 (L)',
+    lockBtnUnlocked: '锁定此图元 (L) — 锁定后不可移动/删除',
+    lockedHint: '锁定后此图元不会被框选、移动或删除。需要先解锁才能编辑。',
+  },
+  en: {
+    emptyTitle: 'No element selected',
+    emptySub: 'Click an element on canvas to view properties',
+    panelTitle: 'Properties',
+    type: 'Type', typeLine: 'Line', typeRect: 'Rect',
+    length: 'Length',
+    rectSize: 'Rect Size (W × H)',
+    profileSpec: 'Profile Spec',
+    section: 'Section Size',
+    area: 'Cross-section Area',
+    weight: 'Theoretical Weight',
+    unitPrice: 'Unit Price',
+    singleCost: 'Single Piece Cost',
+    costSimTitle: 'Cost Simulation (vs. 4040 baseline)',
+    base: 'Baseline (4040)',
+    current: 'Current',
+    diff: 'Diff',
+    startCoord: 'Start (X1, Y1)',
+    rectStartCoord: 'Rect start (X1, Y1)',
+    endCoord: 'End (X2, Y2)',
+    rectEndCoord: 'Rect end (X2, Y2)',
+    coordHint: 'Editing coordinates auto-recalculates line length',
+    align: 'Alignment',
+    centerH: 'Center Vert.', centerV: 'Center Horiz.',
+    distributeH: 'Distribute H', distributeV: 'Distribute V',
+    centerHTitle: 'Center vertically (canvas Y)',
+    centerVTitle: 'Center horizontally (canvas X)',
+    distributeHTitle: 'Distribute horizontally (≥3)',
+    distributeVTitle: 'Distribute vertically (≥3)',
+    label: 'Label',
+    labelPh: 'e.g. support, top rail...',
+    color: 'Color',
+    clear: 'Clear',
+    clearTitle: 'Clear label',
+    lockTitle: 'Lock State',
+    locked: 'Locked (press L to unlock)',
+    unlocked: 'Unlocked (press L to lock)',
+    lockBtnLocked: 'Unlock (L)',
+    lockBtnUnlocked: 'Lock (L) — prevents move/delete',
+    lockedHint: 'Locked elements cannot be box-selected, moved, or deleted. Unlock first to edit.',
+  },
+}
+
+export default function PropertyPanel({ selectedElement, onUpdateElement, onUpdateCoordinate, onAlign, isMobile = false, lang = 'zh' }) {
+  const D = dict[lang] || dict.zh
   if (!selectedElement) {
     return (
       <div className="panel-section" style={{ textAlign: 'center' }}>
         <Layers size={24} style={{ color: '#888892', margin: '0 auto 8px' }} />
-        <div style={{ color: '#888892', fontSize: 14 }}>未选中任何图元</div>
+        <div style={{ color: '#888892', fontSize: 14 }}>{D.emptyTitle}</div>
         <div style={{ color: '#888892', fontSize: 12, marginTop: 4 }}>
-          点击画布上的线段以查看属性
+          {D.emptySub}
         </div>
       </div>
     )
@@ -22,19 +109,19 @@ export default function PropertyPanel({ selectedElement, onUpdateElement, onUpda
     <div className="panel-section" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <Box size={16} style={{ color: '#ECECEE' }} />
-        <span style={{ fontSize: 14, fontWeight: 600, color: '#ECECEE' }}>属性面板</span>
+        <span style={{ fontSize: 14, fontWeight: 600, color: '#ECECEE' }}>{D.panelTitle}</span>
       </div>
 
       {/* Type */}
       <div>
-        <div className="panel-label">类型</div>
-        <div className="panel-value">{el.type === 'line' ? '线段' : el.type === 'rect' ? '矩形' : el.type}</div>
+        <div className="panel-label">{D.type}</div>
+        <div className="panel-value">{el.type === 'line' ? D.typeLine : el.type === 'rect' ? D.typeRect : el.type}</div>
       </div>
 
       {/* Length */}
       <div>
         <div className="panel-label">
-          <Ruler size={12} style={{ marginRight: 4, verticalAlign: 'middle' }} /> 长度
+          <Ruler size={12} style={{ marginRight: 4, verticalAlign: 'middle' }} /> {D.length}
         </div>
         <div className="panel-value-mono">{el.length} mm ({(el.length / 1000).toFixed(2)} m)</div>
       </div>
@@ -42,7 +129,7 @@ export default function PropertyPanel({ selectedElement, onUpdateElement, onUpda
       {/* Rect dimensions */}
       {el.type === 'rect' && (
         <div>
-          <div className="panel-label">矩形尺寸（宽×高）</div>
+          <div className="panel-label">{D.rectSize}</div>
           <div className="panel-value-mono">
             {Math.abs(el.x2 - el.x1)} × {Math.abs(el.y2 - el.y1)} px
           </div>
@@ -51,7 +138,7 @@ export default function PropertyPanel({ selectedElement, onUpdateElement, onUpda
 
       {/* T08: Profile spec — switchable dropdown for cost simulation */}
       <div>
-        <div className="panel-label">型材规格</div>
+        <div className="panel-label">{D.profileSpec}</div>
         {onUpdateElement ? (
           <select
             value={el.profileSpec || '4040'}
@@ -74,7 +161,7 @@ export default function PropertyPanel({ selectedElement, onUpdateElement, onUpda
               const p = ALUMINUM_PROFILES[id]
               return (
                 <option key={id} value={id}>
-                  {p.name} ({p.width}×{p.height}mm) — {p.pricePerMeter}元/m
+                  {p.name} ({p.width}×{p.height}mm) — {p.pricePerMeter}{lang === 'en' ? '¥' : '元'}/m
                 </option>
               )
             })}
@@ -88,25 +175,25 @@ export default function PropertyPanel({ selectedElement, onUpdateElement, onUpda
       {profile && (
         <>
           <div style={{ borderTop: '1px solid #2E2E38', paddingTop: 10 }}>
-            <div className="panel-label">截面尺寸</div>
+            <div className="panel-label">{D.section}</div>
             <div className="panel-value-mono">{profile.width} × {profile.height} mm</div>
           </div>
           <div>
-            <div className="panel-label">截面积</div>
+            <div className="panel-label">{D.area}</div>
             <div className="panel-value-mono">{profile.area} cm²</div>
           </div>
           <div>
-            <div className="panel-label">理论重量</div>
+            <div className="panel-label">{D.weight}</div>
             <div className="panel-value-mono">{profile.weightPerMeter} kg/m</div>
           </div>
           <div>
-            <div className="panel-label">单价</div>
-            <div className="panel-value-accent">{profile.pricePerMeter} 元/m</div>
+            <div className="panel-label">{D.unitPrice}</div>
+            <div className="panel-value-accent">{profile.pricePerMeter} {lang === 'en' ? '¥' : '元'}/m</div>
           </div>
           <div>
-            <div className="panel-label">单根成本估算</div>
+            <div className="panel-label">{D.singleCost}</div>
             <div className="panel-value-accent" style={{ fontSize: 16 }}>
-              {(el.length / 1000 * profile.pricePerMeter).toFixed(2)} 元
+              {(el.length / 1000 * profile.pricePerMeter).toFixed(2)} {lang === 'en' ? '¥' : '元'}
             </div>
           </div>
         </>
@@ -121,6 +208,7 @@ export default function PropertyPanel({ selectedElement, onUpdateElement, onUpda
         const baseCost = (el.length / 1000) * baseProfile.pricePerMeter
         const delta = currentCost - baseCost
         const pct = baseCost > 0 ? (delta / baseCost) * 100 : 0
+        const yuan = lang === 'en' ? '¥' : '元'
         return (
           <div style={{
             borderTop: '1px solid #2E2E38',
@@ -132,16 +220,16 @@ export default function PropertyPanel({ selectedElement, onUpdateElement, onUpda
           }}>
             <div className="panel-label" style={{ marginBottom: 6, display: 'flex', alignItems: 'center', gap: 4 }}>
               <TrendingUp size={12} style={{ verticalAlign: 'middle' }} />
-              成本模拟（相对 4040 基准）
+              {D.costSimTitle}
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
-              <span style={{ color: '#888892' }}>基准 (4040)</span>
-              <span className="panel-value-mono">{baseCost.toFixed(2)} 元</span>
+              <span style={{ color: '#888892' }}>{D.base}</span>
+              <span className="panel-value-mono">{baseCost.toFixed(2)} {yuan}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginBottom: 4 }}>
-              <span style={{ color: '#888892' }}>当前规格</span>
+              <span style={{ color: '#888892' }}>{D.current}</span>
               <span className="panel-value-mono" style={{ color: '#ECECEE' }}>
-                {currentCost.toFixed(2)} 元
+                {currentCost.toFixed(2)} {yuan}
               </span>
             </div>
             <div style={{
@@ -152,13 +240,13 @@ export default function PropertyPanel({ selectedElement, onUpdateElement, onUpda
               paddingTop: 6,
               marginTop: 4,
             }}>
-              <span style={{ color: '#888892' }}>差异</span>
+              <span style={{ color: '#888892' }}>{D.diff}</span>
               <span style={{
                 fontFamily: '"SF Mono","Menlo",monospace',
                 color: delta > 0 ? '#FFB36B' : delta < 0 ? '#7FE0A1' : '#ECECEE',
                 fontWeight: 600,
               }}>
-                {delta > 0 ? '+' : ''}{delta.toFixed(2)} 元 ({pct > 0 ? '+' : ''}{pct.toFixed(1)}%)
+                {delta > 0 ? '+' : ''}{delta.toFixed(2)} {yuan} ({pct > 0 ? '+' : ''}{pct.toFixed(1)}%)
               </span>
             </div>
           </div>
@@ -169,7 +257,7 @@ export default function PropertyPanel({ selectedElement, onUpdateElement, onUpda
       <div style={{ borderTop: '1px solid #2E2E38', paddingTop: 10 }}>
         <div className="panel-label" style={{ marginBottom: 6 }}>
           <MapPin size={12} style={{ marginRight: 4, verticalAlign: 'middle' }} />
-          {el.type === 'rect' ? '对角起点 (X1, Y1)' : '起点坐标 (X1, Y1)'}
+          {el.type === 'rect' ? D.rectStartCoord : D.startCoord}
         </div>
         {onUpdateCoordinate ? (
           <div style={{ display: 'flex', gap: 8 }}>
@@ -199,7 +287,7 @@ export default function PropertyPanel({ selectedElement, onUpdateElement, onUpda
         )}
 
         <div className="panel-label" style={{ marginTop: 10, marginBottom: 6 }}>
-          {el.type === 'rect' ? '对角终点 (X2, Y2)' : '终点坐标 (X2, Y2)'}
+          {el.type === 'rect' ? D.rectEndCoord : D.endCoord}
         </div>
         {onUpdateCoordinate ? (
           <div style={{ display: 'flex', gap: 8 }}>
@@ -229,7 +317,7 @@ export default function PropertyPanel({ selectedElement, onUpdateElement, onUpda
         )}
         {onUpdateCoordinate && el.type === 'line' && (
           <div style={{ fontSize: 10, color: '#555560', marginTop: 6, lineHeight: 1.4 }}>
-            修改坐标将自动重算线段长度
+            {D.coordHint}
           </div>
         )}
       </div>
@@ -237,39 +325,39 @@ export default function PropertyPanel({ selectedElement, onUpdateElement, onUpda
       {/* T03: Alignment tools */}
       {onAlign && (
         <div style={{ borderTop: '1px solid #2E2E38', paddingTop: 10 }}>
-          <div className="panel-label" style={{ marginBottom: 8 }}>对齐工具</div>
+          <div className="panel-label" style={{ marginBottom: 8 }}>{D.align}</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
             <button
               onClick={() => onAlign('centerH')}
-              title="垂直居中（画布中心 Y）"
+              title={D.centerHTitle}
               style={alignBtnStyle}
             >
               <AlignCenterHorizontal size={14} />
-              <span>垂直居中</span>
+              <span>{D.centerH}</span>
             </button>
             <button
               onClick={() => onAlign('centerV')}
-              title="水平居中（画布中心 X）"
+              title={D.centerVTitle}
               style={alignBtnStyle}
             >
               <AlignCenterVertical size={14} />
-              <span>水平居中</span>
+              <span>{D.centerV}</span>
             </button>
             <button
               onClick={() => onAlign('distributeH')}
-              title="水平等距分布（≥3 个）"
+              title={D.distributeHTitle}
               style={alignBtnStyle}
             >
               <AlignHorizontalDistributeCenter size={14} />
-              <span>水平等距</span>
+              <span>{D.distributeH}</span>
             </button>
             <button
               onClick={() => onAlign('distributeV')}
-              title="垂直等距分布（≥3 个）"
+              title={D.distributeVTitle}
               style={alignBtnStyle}
             >
               <AlignVerticalDistributeCenter size={14} />
-              <span>垂直等距</span>
+              <span>{D.distributeV}</span>
             </button>
           </div>
         </div>
@@ -279,11 +367,11 @@ export default function PropertyPanel({ selectedElement, onUpdateElement, onUpda
       {onUpdateElement && (
         <div style={{ borderTop: '1px solid #2E2E38', paddingTop: 10 }}>
           <div className="panel-label" style={{ marginBottom: 8 }}>
-            <Tag size={12} style={{ marginRight: 4, verticalAlign: 'middle' }} /> 文字标注
+            <Tag size={12} style={{ marginRight: 4, verticalAlign: 'middle' }} /> {D.label}
           </div>
           <input
             type="text"
-            placeholder="如：支撑、上轨..."
+            placeholder={D.labelPh}
             value={el.label || ''}
             onChange={e => onUpdateElement(el.id, { label: e.target.value })}
             maxLength={24}
@@ -301,7 +389,7 @@ export default function PropertyPanel({ selectedElement, onUpdateElement, onUpda
             }}
           />
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
-            <div className="panel-label" style={{ margin: 0 }}>颜色</div>
+            <div className="panel-label" style={{ margin: 0 }}>{D.color}</div>
             <input
               type="color"
               value={el.labelColor || '#888892'}
@@ -331,9 +419,9 @@ export default function PropertyPanel({ selectedElement, onUpdateElement, onUpda
                   padding: '0 4px',
                   marginLeft: 'auto',
                 }}
-                title="清除标注"
+                title={D.clearTitle}
               >
-                清除
+                {D.clear}
               </button>
             )}
           </div>
@@ -343,10 +431,10 @@ export default function PropertyPanel({ selectedElement, onUpdateElement, onUpda
       {/* T04: Lock toggle */}
       {onUpdateElement && (
         <div style={{ borderTop: '1px solid #2E2E38', paddingTop: 10 }}>
-          <div className="panel-label" style={{ marginBottom: 8 }}>锁定状态</div>
+          <div className="panel-label" style={{ marginBottom: 8 }}>{D.lockTitle}</div>
           <button
             onClick={() => onUpdateElement(el.id, { locked: !isLocked })}
-            title={isLocked ? '解锁此图元 (L)' : '锁定此图元 (L) — 锁定后不可移动/删除'}
+            title={isLocked ? D.lockBtnLocked : D.lockBtnUnlocked}
             style={{
               ...alignBtnStyle,
               width: '100%',
@@ -358,14 +446,14 @@ export default function PropertyPanel({ selectedElement, onUpdateElement, onUpda
             }}
           >
             {isLocked ? <Lock size={14} /> : <Unlock size={14} />}
-            <span>{isLocked ? '已锁定（按 L 解锁）' : '未锁定（按 L 锁定）'}</span>
+            <span>{isLocked ? D.locked : D.unlocked}</span>
           </button>
           {isLocked && (
             <div style={{
               fontSize: 11, color: '#888892',
               marginTop: 6, lineHeight: 1.4,
             }}>
-              锁定后此图元不会被框选、移动或删除。需要先解锁才能编辑。
+              {D.lockedHint}
             </div>
           )}
         </div>

@@ -8,7 +8,8 @@ import { ALUMINUM_PROFILES } from '../../lib/aluminum-profiles'
 import { exportCanvasAsPNG } from '../../lib/exporter'
 import { TEMPLATES, TEMPLATE_IDS, getTemplate, resolveTemplate } from '../../lib/templates'
 import { saveDesign, generateId, saveDraft, loadDraft, clearDraft } from '../../utils/storage'
-import { Save, Trash2, Layers, ClipboardList, X, Eye, Pencil, LayoutTemplate, ArrowLeft, ClipboardCopy, ClipboardPaste, AlignCenterHorizontal, AlignCenterVertical, Grid3x3, CloudCheck, CloudOff, ImageDown } from 'lucide-react'
+import { Save, Trash2, Layers, ClipboardList, X, Eye, Pencil, LayoutTemplate, ArrowLeft, ClipboardCopy, ClipboardPaste, AlignCenterHorizontal, AlignCenterVertical, Grid3x3, CloudCheck, CloudOff, ImageDown, Globe } from 'lucide-react'
+import { t, loadLang, saveLang } from '../../lib/i18n'
 
 export default function EditorPage({ isMobile }) {
   const [elements, setElements] = useState([])
@@ -29,6 +30,12 @@ export default function EditorPage({ isMobile }) {
   // T15: Auto-save draft state
   const [lastSavedAt, setLastSavedAt] = useState(null)
   const [draftRestored, setDraftRestored] = useState(false)
+  // T17: UI language (zh / en), persisted in localStorage
+  const [lang, setLang] = useState(() => loadLang())
+
+  useEffect(() => {
+    saveLang(lang)
+  }, [lang])
 
   // T16: Ref for DrawingCanvas imperative handle
   const canvasRef = useRef(null)
@@ -145,7 +152,7 @@ export default function EditorPage({ isMobile }) {
     const draft = loadDraft()
     if (draft && draft.elements && draft.elements.length > 0) {
       const ts = draft.updatedAt || Date.now()
-      const confirmMsg = `检测到草稿（${new Date(ts).toLocaleString()}，${draft.elements.length} 个图元），是否恢复？`
+      const confirmMsg = t('draftPrompt', lang, { time: new Date(ts).toLocaleString(), n: draft.elements.length })
       let restore = false
       try {
         restore = window.confirm(confirmMsg)
@@ -326,8 +333,8 @@ export default function EditorPage({ isMobile }) {
       updatedAt: Date.now(),
     }
     saveDesign(designData)
-    alert('设计已保存')
-  }, [elements])
+    alert(t('saved', lang))
+  }, [elements, lang])
 
   const handleClear = useCallback(() => {
     setHistory(h => [...h, [...elements]])
@@ -367,19 +374,19 @@ export default function EditorPage({ isMobile }) {
   }, [elements])
 
   const toolHint =
-    currentTool === 'line' ? '点击画布绘制线段起点，再次点击完成线段' :
-    currentTool === 'select' ? '点击线段选中查看属性' :
-    currentTool === 'delete' ? '点击线段删除' :
-    currentTool === 'rect' ? '点击画布绘制矩形起点，再次点击完成矩形' : ''
+    currentTool === 'line' ? t('hintLine', lang) :
+    currentTool === 'select' ? t('hintSelect', lang) :
+    currentTool === 'delete' ? t('hintDelete', lang) :
+    currentTool === 'rect' ? t('hintRect', lang) : ''
 
-  // T15: Human-readable "X 秒/分钟/小时前" relative time formatter
+  // T15: Human-readable "X 秒/分钟/小时前" relative time formatter (bilingual via lang)
   const formatDraftTime = (ts) => {
     if (!ts) return ''
     const diff = Date.now() - ts
-    if (diff < 5000) return '刚刚'
-    if (diff < 60_000) return `${Math.floor(diff / 1000)} 秒前`
-    if (diff < 3600_000) return `${Math.floor(diff / 60_000)} 分钟前`
-    return new Date(ts).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+    if (diff < 5000) return t('justNow', lang)
+    if (diff < 60_000) return t('secondsAgo', lang, { n: Math.floor(diff / 1000) })
+    if (diff < 3600_000) return t('minutesAgo', lang, { n: Math.floor(diff / 60_000) })
+    return new Date(ts).toLocaleTimeString(lang === 'en' ? 'en-US' : 'zh-CN', { hour: '2-digit', minute: '2-digit' })
   }
 
   // ===== TEMPLATE MODAL =====
@@ -440,7 +447,7 @@ export default function EditorPage({ isMobile }) {
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: 16 }}>
           <LayoutTemplate size={20} style={{ color: '#ECECEE' }} />
           <span style={{ fontSize: 18, fontWeight: 600, color: '#ECECEE', marginLeft: 8 }}>
-            选择模板
+            {t('templateBtn', lang)}
           </span>
           <div style={{ flex: 1 }} />
           <button
@@ -475,7 +482,7 @@ export default function EditorPage({ isMobile }) {
                 {t.description}
               </div>
               <div style={{ fontSize: 11, color: '#555560', marginTop: 6 }}>
-                型材: {t.profile}
+                {t('profile', lang)}: {t(`profile${tpl.profile}`, lang)}
               </div>
 
               {/* T09: Param inputs for parameterized templates */}
@@ -577,7 +584,7 @@ export default function EditorPage({ isMobile }) {
     }}>
       <Eye size={18} style={{ color: '#ECECEE' }} />
       <span style={{ fontSize: 15, fontWeight: 600, color: '#ECECEE', marginLeft: 8 }}>
-        3D 预览
+        {t('preview3d', lang)}
       </span>
       <div style={{ flex: 1 }} />
       <button
@@ -590,7 +597,7 @@ export default function EditorPage({ isMobile }) {
         }}
         onClick={() => setMode('draw')}
       >
-        <Pencil size={14} /> 返回编辑
+        <Pencil size={14} /> {t('editBtn', lang)}
       </button>
     </div>
   )
@@ -630,26 +637,36 @@ export default function EditorPage({ isMobile }) {
           onDuplicate={handleDuplicate}
           canCopy={!!selectedId}
           canPaste={clipboard.length > 0}
+          lang={lang}
         />
 
         <div className="desktop-canvas-area">
           <div className="header-bar">
-            <div className="header-title">铝型材结构设计器</div>
+            <div className="header-title">{t('title', lang)}</div>
             <div className="flex-1" />
             <div className="header-stat">
-              图元数量: {elements.length}
+              {t('elementsCount', lang)}: {elements.length}
             </div>
-            <button className="header-btn" onClick={() => setShowTemplateModal(true)} title="选择模板">
-              <LayoutTemplate size={16} /> 模板
+            {/* T17: language toggle (zh / en) */}
+            <button
+              className="header-btn"
+              onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')}
+              title={lang === 'zh' ? 'Switch to English' : '切换到中文'}
+              style={{ fontFamily: '"SF Mono","Menlo",monospace', fontSize: 12 }}
+            >
+              <Globe size={16} /> {lang === 'zh' ? 'EN' : '中'}
+            </button>
+            <button className="header-btn" onClick={() => setShowTemplateModal(true)} title={t('templateBtn', lang)}>
+              <LayoutTemplate size={16} /> {t('template', lang)}
             </button>
             <button className="header-btn header-btn-primary" onClick={handleSave}>
-              <Save size={16} /> 保存
+              <Save size={16} /> {t('save', lang)}
             </button>
             <button className="header-btn header-btn-danger" onClick={handleClear}>
-              <Trash2 size={16} /> 清空
+              <Trash2 size={16} /> {t('clear', lang)}
             </button>
-            <button className="header-btn" onClick={handleExportPNG} title="导出为 PNG 图片">
-              <ImageDown size={16} /> 导出图片
+            <button className="header-btn" onClick={handleExportPNG} title={t('exportPng', lang)}>
+              <ImageDown size={16} /> {t('exportPng', lang)}
             </button>
           </div>
 
@@ -685,7 +702,7 @@ export default function EditorPage({ isMobile }) {
               }} title="草稿已自动保存到本地">
                 <CloudCheck size={13} style={{ color: '#4ADE80' }} />
                 <span style={{ fontFamily: '"SF Mono","Menlo",monospace' }}>
-                  已自动保存 {formatDraftTime(lastSavedAt)}
+                  {t('autoSavedAt', lang, { time: formatDraftTime(lastSavedAt) })}
                 </span>
               </span>
             )}
@@ -695,7 +712,7 @@ export default function EditorPage({ isMobile }) {
                 fontSize: 12, color: '#888892',
               }} title="等待下次自动保存">
                 <CloudOff size={13} style={{ color: '#888892' }} />
-                <span style={{ fontFamily: '"SF Mono","Menlo",monospace' }}>未自动保存</span>
+                <span style={{ fontFamily: '"SF Mono","Menlo",monospace' }}>{t('notAutoSaved', lang)}</span>
               </span>
             )}
             {/* T12: Grid size selector */}
@@ -704,7 +721,7 @@ export default function EditorPage({ isMobile }) {
               fontSize: 12, color: '#888892',
             }}>
               <Grid3x3 size={13} style={{ color: '#888892' }} />
-              <span style={{ fontFamily: '"SF Mono","Menlo",monospace' }}>网格</span>
+              <span style={{ fontFamily: '"SF Mono","Menlo",monospace' }}>{t('grid', lang)}</span>
               {[10, 20, 50].map(size => (
                 <button
                   key={size}
@@ -739,7 +756,7 @@ export default function EditorPage({ isMobile }) {
             gap: 8,
           }}>
             <Layers size={16} style={{ color: '#ECECEE' }} />
-            <span style={{ fontSize: 13, fontWeight: 600, color: '#ECECEE' }}>属性</span>
+            <span style={{ fontSize: 13, fontWeight: 600, color: '#ECECEE' }}>{t('property', lang)}</span>
             {/* T02: Show selection count + delete button when multiple selected */}
             {selectedIds.length > 1 && (
               <>
@@ -749,7 +766,7 @@ export default function EditorPage({ isMobile }) {
                   background: '#1A1A1F', padding: '2px 8px',
                   borderRadius: 6, fontFamily: '"SF Mono","Menlo",monospace',
                 }}>
-                  {selectedIds.length} 个
+                  {t('selectCount', lang, { n: selectedIds.length })}
                 </span>
                 <button
                   onClick={handleDeleteSelected}
@@ -761,7 +778,7 @@ export default function EditorPage({ isMobile }) {
                     cursor: 'pointer',
                   }}
                 >
-                  <Trash2 size={12} /> 删除选中
+                  <Trash2 size={12} /> {t('deleteSelected', lang)}
                 </button>
               </>
             )}
@@ -772,9 +789,10 @@ export default function EditorPage({ isMobile }) {
             onUpdateCoordinate={handleUpdateCoordinate}
             onAlign={handleAlign}
             isMobile={false}
+            lang={lang}
           />
           <div style={{ borderTop: '1px solid #2E2E38' }}>
-            <MaterialList elements={elements} isMobile={false} />
+            <MaterialList elements={elements} isMobile={false} lang={lang} />
           </div>
         </div>
 
@@ -790,14 +808,14 @@ export default function EditorPage({ isMobile }) {
         <div className="mobile-top-bar">
           <Eye size={18} style={{ color: '#ECECEE' }} />
           <span style={{ fontSize: 15, fontWeight: 600, color: '#ECECEE', marginLeft: 8 }}>
-            3D 预览
+            {t('preview3d', lang)}
           </span>
           <div className="flex-1" />
           <button
             className="header-btn header-btn-primary"
             onClick={() => setMode('draw')}
           >
-            <Pencil size={16} /> 编辑
+            <Pencil size={16} /> {t('edit', lang)}
           </button>
         </div>
         <div className="mobile-canvas-area" style={{ flex: 1 }}>
@@ -810,10 +828,19 @@ export default function EditorPage({ isMobile }) {
   return (
     <div className="mobile-layout">
       <div className="mobile-top-bar">
-        <div className="header-title">铝型材设计器</div>
+        <div className="header-title">{t('titleMobile', lang)}</div>
         <div className="flex-1" />
         <div className="header-stat font-mono">{elements.length}</div>
-        <button className="header-btn" onClick={() => setShowTemplateModal(true)} title="模板">
+        {/* T17: language toggle (mobile) */}
+        <button
+          className="header-btn"
+          onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')}
+          title={lang === 'zh' ? 'Switch to English' : '切换到中文'}
+          style={{ fontFamily: '"SF Mono","Menlo",monospace', fontSize: 12 }}
+        >
+          <Globe size={16} /> {lang === 'zh' ? 'EN' : '中'}
+        </button>
+        <button className="header-btn" onClick={() => setShowTemplateModal(true)} title={t('template', lang)}>
           <LayoutTemplate size={16} />
         </button>
         <button className="header-btn header-btn-primary" onClick={handleSave}>
@@ -897,6 +924,7 @@ export default function EditorPage({ isMobile }) {
           onDuplicate={handleDuplicate}
           canCopy={!!selectedId}
           canPaste={clipboard.length > 0}
+          lang={lang}
         />
       </div>
 
@@ -913,14 +941,14 @@ export default function EditorPage({ isMobile }) {
             style={{ flex: 1, justifyContent: 'center' }}
             onClick={() => setSheetTab('property')}
           >
-            <Layers size={16} /> 属性
+            <Layers size={16} /> {t('property', lang)}
           </button>
           <button
             className={`header-btn ${sheetTab === 'material' ? 'header-btn-primary' : ''}`}
             style={{ flex: 1, justifyContent: 'center' }}
             onClick={() => setSheetTab('material')}
           >
-            <ClipboardList size={16} /> 材料清单
+            <ClipboardList size={16} /> {t('material', lang)}
           </button>
           <button
             className="header-btn header-btn-danger"
@@ -937,9 +965,10 @@ export default function EditorPage({ isMobile }) {
             onUpdateCoordinate={handleUpdateCoordinate}
             onAlign={handleAlign}
             isMobile={true}
+            lang={lang}
           />
         ) : (
-          <MaterialList elements={elements} isMobile={true} />
+          <MaterialList elements={elements} isMobile={true} lang={lang} />
         )}
       </div>
 

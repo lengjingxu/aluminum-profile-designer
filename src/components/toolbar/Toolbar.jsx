@@ -1,6 +1,27 @@
 import { getProfileIds, getProfile } from '../../lib/aluminum-profiles'
 import { MousePointer2, Minus, Square, Trash2, Undo2, Redo2, Rotate3d, Grid3x3, Eye, LayoutTemplate, ClipboardCopy, ClipboardPaste, Copy } from 'lucide-react'
 
+const dict = {
+  zh: {
+    select: '选择', line: '线段', rect: '矩形', delete: '删除',
+    preview: '预览', template: '模板',
+    undo: '撤销', redo: '重做',
+    copy: '复制', paste: '粘贴', dup: '副本',
+    title2d: '2D视图', title3d: '3D视图', titlePreview: '3D预览模式',
+    titleCopy: '复制选中 (Ctrl+C)', titlePaste: '粘贴 (Ctrl+V)', titleDup: '原地复制 (Ctrl+D)',
+    titleCopyMobile: '复制 (Ctrl+C)', titleUndo: '撤销', titleRedo: '重做',
+  },
+  en: {
+    select: 'Select', line: 'Line', rect: 'Rect', delete: 'Delete',
+    preview: 'Preview', template: 'Template',
+    undo: 'Undo', redo: 'Redo',
+    copy: 'Copy', paste: 'Paste', dup: 'Duplicate',
+    title2d: '2D view', title3d: '3D view', titlePreview: '3D preview mode',
+    titleCopy: 'Copy selection (Ctrl+C)', titlePaste: 'Paste (Ctrl+V)', titleDup: 'Duplicate (Ctrl+D)',
+    titleCopyMobile: 'Copy (Ctrl+C)', titleUndo: 'Undo', titleRedo: 'Redo',
+  },
+}
+
 export default function Toolbar({
   currentTool, onToolChange,
   currentProfile, onProfileChange,
@@ -11,12 +32,14 @@ export default function Toolbar({
   mode = 'draw', onModeChange,
   onTemplateClick,
   onCopy, onPaste, onDuplicate, canCopy, canPaste,
+  lang = 'zh',
 }) {
+  const D = dict[lang] || dict.zh
   const tools = [
-    { id: 'select', label: '选择', Icon: MousePointer2 },
-    { id: 'line', label: '线段', Icon: Minus },
-    { id: 'rect', label: '矩形', Icon: Square },
-    { id: 'delete', label: '删除', Icon: Trash2 },
+    { id: 'select', label: D.select, Icon: MousePointer2 },
+    { id: 'line', label: D.line, Icon: Minus },
+    { id: 'rect', label: D.rect, Icon: Square },
+    { id: 'delete', label: D.delete, Icon: Trash2 },
   ]
 
   const profileIds = getProfileIds()
@@ -38,7 +61,7 @@ export default function Toolbar({
         <button
           className={`tool-btn ${viewMode === '2d' ? 'active' : ''}`}
           onClick={() => onViewModeChange('2d')}
-          title="2D视图"
+          title={D.title2d}
         >
           <Grid3x3 size={20} />
           <span>2D</span>
@@ -46,7 +69,7 @@ export default function Toolbar({
         <button
           className={`tool-btn ${viewMode === '3d' ? 'active' : ''}`}
           onClick={() => onViewModeChange('3d')}
-          title="3D视图"
+          title={D.title3d}
         >
           <Rotate3d size={20} />
           <span>3D</span>
@@ -55,27 +78,27 @@ export default function Toolbar({
         <button
           className={`tool-btn ${mode === 'view' ? 'active' : ''}`}
           onClick={() => onModeChange && onModeChange(mode === 'view' ? 'draw' : 'view')}
-          title="3D预览模式"
+          title={D.titlePreview}
         >
           <Eye size={20} />
-          <span>预览</span>
+          <span>{D.preview}</span>
         </button>
         {/* Template button */}
         {onTemplateClick && (
           <button
             className="tool-btn"
             onClick={onTemplateClick}
-            title="模板"
+            title={D.template}
           >
             <LayoutTemplate size={20} />
-            <span>模板</span>
+            <span>{D.template}</span>
           </button>
         )}
         <button
           className="tool-btn"
           onClick={onUndo}
           disabled={!canUndo}
-          title="撤销"
+          title={D.titleUndo}
           style={{ opacity: canUndo ? 1 : 0.4 }}
         >
           <Undo2 size={20} />
@@ -84,7 +107,7 @@ export default function Toolbar({
           className="tool-btn"
           onClick={onRedo}
           disabled={!canRedo}
-          title="重做"
+          title={D.titleRedo}
           style={{ opacity: canRedo ? 1 : 0.4 }}
         >
           <Redo2 size={20} />
@@ -94,7 +117,7 @@ export default function Toolbar({
             className="tool-btn"
             onClick={onCopy}
             disabled={!canCopy}
-            title="复制 (Ctrl+C)"
+            title={D.titleCopyMobile}
             style={{ opacity: canCopy ? 1 : 0.4 }}
           >
             <ClipboardCopy size={20} />
@@ -105,7 +128,7 @@ export default function Toolbar({
             className="tool-btn"
             onClick={onPaste}
             disabled={!canPaste}
-            title="粘贴 (Ctrl+V)"
+            title={D.titlePaste}
             style={{ opacity: canPaste ? 1 : 0.4 }}
           >
             <ClipboardPaste size={20} />
@@ -135,7 +158,7 @@ export default function Toolbar({
       <button
         className={`tool-btn ${viewMode === '2d' ? 'active' : ''}`}
         onClick={() => onViewModeChange('2d')}
-        title="2D视图"
+        title={D.title2d}
       >
         <Grid3x3 size={18} />
         <span>2D</span>
@@ -143,7 +166,7 @@ export default function Toolbar({
       <button
         className={`tool-btn ${viewMode === '3d' ? 'active' : ''}`}
         onClick={() => onViewModeChange('3d')}
-        title="3D视图"
+        title={D.title3d}
       >
         <Rotate3d size={18} />
         <span>3D</span>
@@ -153,10 +176,10 @@ export default function Toolbar({
       <button
         className={`tool-btn ${mode === 'view' ? 'active' : ''}`}
         onClick={() => onModeChange && onModeChange(mode === 'view' ? 'draw' : 'view')}
-        title="3D预览模式"
+        title={D.titlePreview}
       >
         <Eye size={18} />
-        <span>预览</span>
+        <span>{D.preview}</span>
       </button>
 
       {/* Template button */}
@@ -164,10 +187,10 @@ export default function Toolbar({
         <button
           className="tool-btn"
           onClick={onTemplateClick}
-          title="选择模板"
+          title={D.template}
         >
           <LayoutTemplate size={18} />
-          <span>模板</span>
+          <span>{D.template}</span>
         </button>
       )}
 
@@ -177,21 +200,21 @@ export default function Toolbar({
         className="tool-btn"
         onClick={onUndo}
         disabled={!canUndo}
-        title="撤销"
+        title={D.titleUndo}
         style={{ opacity: canUndo ? 1 : 0.4 }}
       >
         <Undo2 size={18} />
-        <span>撤销</span>
+        <span>{D.undo}</span>
       </button>
       <button
         className="tool-btn"
         onClick={onRedo}
         disabled={!canRedo}
-        title="重做"
+        title={D.titleRedo}
         style={{ opacity: canRedo ? 1 : 0.4 }}
       >
         <Redo2 size={18} />
-        <span>重做</span>
+        <span>{D.redo}</span>
       </button>
 
       <div style={{ height: 1, background: '#2E2E38', margin: '4px 0' }} />
@@ -201,11 +224,11 @@ export default function Toolbar({
           className="tool-btn"
           onClick={onCopy}
           disabled={!canCopy}
-          title="复制选中 (Ctrl+C)"
+          title={D.titleCopy}
           style={{ opacity: canCopy ? 1 : 0.4 }}
         >
           <ClipboardCopy size={18} />
-          <span>复制</span>
+          <span>{D.copy}</span>
         </button>
       )}
       {onPaste && (
@@ -213,11 +236,11 @@ export default function Toolbar({
           className="tool-btn"
           onClick={onPaste}
           disabled={!canPaste}
-          title="粘贴 (Ctrl+V)"
+          title={D.titlePaste}
           style={{ opacity: canPaste ? 1 : 0.4 }}
         >
           <ClipboardPaste size={18} />
-          <span>粘贴</span>
+          <span>{D.paste}</span>
         </button>
       )}
       {onDuplicate && (
@@ -225,11 +248,11 @@ export default function Toolbar({
           className="tool-btn"
           onClick={onDuplicate}
           disabled={!canCopy}
-          title="原地复制 (Ctrl+D)"
+          title={D.titleDup}
           style={{ opacity: canCopy ? 1 : 0.4 }}
         >
           <Copy size={18} />
-          <span>副本</span>
+          <span>{D.dup}</span>
         </button>
       )}
 
