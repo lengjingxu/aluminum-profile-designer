@@ -83,6 +83,87 @@ export function exportToCSV(materialList) {
   URL.revokeObjectURL(url)
 }
 
+// T19: Export full design (elements + profile + metadata) as JSON file.
+// The serialized payload includes a version + timestamp + optional name so
+// that future schema migrations can detect/upgrade older files.
+export function exportDesignJSON(design, options = {}) {
+  const {
+    filename,
+    appName = 'aluminum-profile-designer',
+    schemaVersion = '1.0',
+  } = options
+
+  const payload = {
+    app: appName,
+    version: schemaVersion,
+    timestamp: Date.now(),
+    name: design?.name || `aluminum-design-${Date.now()}`,
+    profile: design?.profile || design?.currentProfile || '4040',
+    currentProfile: design?.profile || design?.currentProfile || '4040',
+    elements: Array.isArray(design?.elements) ? design.elements : [],
+  }
+
+  const json = JSON.stringify(payload, null, 2)
+  const blob = new Blob([json], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename || `${payload.name}.json`
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+
+  // Defer revoke so the browser has time to start the download
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+  return payload
+}
+
+// T19: Parse a user-supplied JSON file and return a normalized design object.
+// Throws on malformed input so callers can show an error message.
+export function importDesignJSON(file) {
+  return new Promise((resolve, reject) => {
+    if (!file) {
+      reject(new Error('No file provided'))
+      return
+    }
+    const reader = new FileReader()
+    reader.onerror = () => reject(new Error('File read error'))
+    reader.onload = (e) => {
+      try {
+        const text = String(e.target?.result || '')
+        const data = JSON.parse(text)
+
+        if (!data || typeof data !== 'object') {
+          reject(new Error('Invalid JSON: not an object'))
+          return
+        }
+        if (!Array.isArray(data.elements)) {
+          reject(new Error('Invalid design file: missing elements array'))
+          return
+        }
+
+        // Normalize: accept both legacy "profile" and "currentProfile" keys,
+        // and allow designs without a version field (legacy saves).
+        const normalized = {
+          app: data.app || 'aluminum-profile-designer',
+          version: data.version || '1.0',
+          timestamp: data.timestamp || Date.now(),
+          name: data.name || `imported-${Date.now()}`,
+          profile: data.profile || data.currentProfile || '4040',
+          currentProfile: data.currentProfile || data.profile || '4040',
+          elements: data.elements,
+        }
+
+        resolve(normalized)
+      } catch (err) {
+        reject(new Error('Invalid JSON file: ' + (err?.message || 'parse error')))
+      }
+    }
+    reader.readAsText(file)
+  })
+}
+
 // T16: Export canvas as PNG
 // Renders a fresh snapshot of the source canvas into an offscreen canvas
 // (with a dark background, padding, and timestamp watermark) then triggers download.

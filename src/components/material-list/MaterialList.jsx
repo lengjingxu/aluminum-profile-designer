@@ -1,6 +1,7 @@
+import { useRef } from 'react'
 import { generateMaterialList } from '../../lib/calculator'
-import { exportToCSV } from '../../lib/exporter'
-import { ClipboardList, Download, BarChart3, Package, Wrench, Sparkles } from 'lucide-react'
+import { exportToCSV, exportDesignJSON, importDesignJSON } from '../../lib/exporter'
+import { ClipboardList, Download, BarChart3, Package, Wrench, Sparkles, FileJson, Upload, AlertCircle } from 'lucide-react'
 
 const dict = {
   zh: {
@@ -14,6 +15,8 @@ const dict = {
     processingFee: '加工费',
     totalCost: '总成本',
     exportCsv: '导出材料清单CSV',
+    exportJson: '导出设计JSON',
+    importJson: '导入JSON',
     noProfiles: '暂无型材数据',
     noAccessories: '暂无配件数据',
     spec: '规格',
@@ -25,6 +28,9 @@ const dict = {
     unit: '单价',
     subTotal: '总价',
     yuan: '元',
+    importEmpty: '当前没有图元，无法导出',
+    importFailed: 'JSON 导入失败',
+    importConfirm: '导入将覆盖当前设计，确定继续？',
   },
   en: {
     profileStats: 'Profile Stats',
@@ -37,6 +43,8 @@ const dict = {
     processingFee: 'Processing Fee',
     totalCost: 'Total Cost',
     exportCsv: 'Export CSV',
+    exportJson: 'Export JSON',
+    importJson: 'Import JSON',
     noProfiles: 'No profile data',
     noAccessories: 'No accessories',
     spec: 'Spec',
@@ -48,15 +56,99 @@ const dict = {
     unit: 'Unit',
     subTotal: 'Total',
     yuan: '¥',
+    importEmpty: 'No elements to export',
+    importFailed: 'JSON import failed',
+    importConfirm: 'Importing will replace the current design. Continue?',
   },
 }
 
-export default function MaterialList({ elements, isMobile = false, lang = 'zh' }) {
+export default function MaterialList({
+  elements,
+  isMobile = false,
+  lang = 'zh',
+  currentProfile = '4040',
+  onImportDesign = null,
+}) {
   const materialData = generateMaterialList(elements)
   const { profiles, accessories, cost } = materialData
   const hasProfiles = Object.keys(profiles).length > 0
+  const hasElements = elements && elements.length > 0
   const D = dict[lang] || dict.zh
   const yuan = D.yuan
+
+  // T19: JSON import/export
+  const fileInputRef = useRef(null)
+  const importErrorRef = useRef(null)
+
+  const handleExportJSON = () => {
+    if (!hasElements) {
+      try { window.alert(D.importEmpty) } catch { /* ignore */ }
+      return
+    }
+    exportDesignJSON({
+      elements,
+      profile: currentProfile,
+      currentProfile,
+    })
+  }
+
+  const handleImportClick = () => {
+    if (!onImportDesign) return
+    if (hasElements) {
+      let ok = false
+      try { ok = window.confirm(D.importConfirm) } catch { ok = false }
+      if (!ok) return
+    }
+    if (fileInputRef.current) fileInputRef.current.click()
+  }
+
+  const handleImportChange = async (e) => {
+    const file = e.target?.files?.[0]
+    // Reset so the same file can be re-selected later
+    if (e.target) e.target.value = ''
+    if (!file || !onImportDesign) return
+    try {
+      const design = await importDesignJSON(file)
+      onImportDesign(design)
+    } catch (err) {
+      const msg = (err && err.message) ? err.message : D.importFailed
+      importErrorRef.current = msg
+      try { window.alert(`${D.importFailed}: ${msg}`) } catch { /* ignore */ }
+    }
+  }
+
+  // Render the JSON action row (used by both mobile and desktop layouts).
+  const renderJsonActions = () => (
+    <div style={{ display: 'flex', gap: 8 }}>
+      <button
+        className="header-btn"
+        style={{ flex: 1, justifyContent: 'center' }}
+        onClick={handleExportJSON}
+        disabled={!hasElements}
+        title={hasElements ? '' : D.importEmpty}
+      >
+        <FileJson size={16} /> {D.exportJson}
+      </button>
+      {onImportDesign && (
+        <>
+          <button
+            className="header-btn"
+            style={{ flex: 1, justifyContent: 'center' }}
+            onClick={handleImportClick}
+          >
+            <Upload size={16} /> {D.importJson}
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/json,.json"
+            style={{ display: 'none' }}
+            onChange={handleImportChange}
+          />
+        </>
+      )}
+    </div>
+  )
 
   // T07 推荐配件数据
   const recommendedBoltSets = accessories.recommendedBoltSets || {}
@@ -210,6 +302,16 @@ export default function MaterialList({ elements, isMobile = false, lang = 'zh' }
             <Download size={16} /> {D.exportCsv}
           </button>
         )}
+
+        {/* T19: JSON import/export */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {renderJsonActions()}
+          {importErrorRef.current && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#FF6B6B', fontSize: 12 }}>
+              <AlertCircle size={12} /> {importErrorRef.current}
+            </div>
+          )}
+        </div>
       </div>
     )
   }
@@ -351,6 +453,16 @@ export default function MaterialList({ elements, isMobile = false, lang = 'zh' }
           <Download size={16} /> {D.exportCsv}
         </button>
       )}
+
+      {/* T19: JSON import/export */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {renderJsonActions()}
+        {importErrorRef.current && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#FF6B6B', fontSize: 12 }}>
+            <AlertCircle size={12} /> {importErrorRef.current}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

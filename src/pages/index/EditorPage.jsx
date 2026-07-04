@@ -238,6 +238,33 @@ export default function EditorPage({ isMobile }) {
     }))
   }, [elements])
 
+  // T19: Replace current design with imported JSON contents.
+  // Sanitises each element to guard against malformed data and re-mints IDs
+  // so the imported elements never collide with existing ones.
+  const handleImportDesign = useCallback((design) => {
+    if (!design || !Array.isArray(design.elements)) return
+    const sanitized = design.elements
+      .filter(Boolean)
+      .map((el) => {
+        if (typeof el !== 'object') return null
+        // Basic shape: must have type and four coordinates
+        if (!el.type || ['x1', 'y1', 'x2', 'y2'].some((k) => typeof el[k] !== 'number')) return null
+        return {
+          ...el,
+          id: 'el-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6),
+        }
+      })
+      .filter(Boolean)
+    setHistory(h => [...h, [...elements]])
+    setFuture([])
+    setElements(sanitized)
+    if (design.currentProfile || design.profile) {
+      setCurrentProfile(design.currentProfile || design.profile)
+    }
+    setSelectedId(null)
+    setSelectedIds([])
+  }, [elements])
+
   // T04: Toggle lock state of currently selected element
   const handleToggleLock = useCallback(() => {
     if (!selectedId) return
@@ -792,7 +819,13 @@ export default function EditorPage({ isMobile }) {
             lang={lang}
           />
           <div style={{ borderTop: '1px solid #2E2E38' }}>
-            <MaterialList elements={elements} isMobile={false} lang={lang} />
+            <MaterialList
+              elements={elements}
+              isMobile={false}
+              lang={lang}
+              currentProfile={currentProfile}
+              onImportDesign={handleImportDesign}
+            />
           </div>
         </div>
 
@@ -968,7 +1001,13 @@ export default function EditorPage({ isMobile }) {
             lang={lang}
           />
         ) : (
-          <MaterialList elements={elements} isMobile={true} lang={lang} />
+          <MaterialList
+            elements={elements}
+            isMobile={true}
+            lang={lang}
+            currentProfile={currentProfile}
+            onImportDesign={handleImportDesign}
+          />
         )}
       </div>
 
