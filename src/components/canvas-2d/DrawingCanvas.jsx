@@ -22,6 +22,12 @@ export default function DrawingCanvas({ elements, onAddElement, onSelectElement,
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 })
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 })
 
+  // T10: Viewport state for zoom (zoom level) and pan (offset)
+  const [viewport, setViewport] = useState({ zoom: 1, panX: 0, panY: 0 })
+  const [isPanning, setIsPanning] = useState(false)
+  const [spacePressed, setSpacePressed] = useState(false)
+  const panStateRef = useRef(null) // { startX, startY, startPanX, startPanY }
+
   const snapToGrid = useCallback((val) => {
     return Math.round(val / gridSize) * gridSize
   }, [gridSize])
@@ -30,16 +36,35 @@ export default function DrawingCanvas({ elements, onAddElement, onSelectElement,
     return Math.round(Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2))
   }, [])
 
+  // T10: Transform world coords -> screen coords
+  const worldToScreen = useCallback((wx, wy) => {
+    return {
+      x: (wx + viewport.panX) * viewport.zoom,
+      y: (wy + viewport.panY) * viewport.zoom,
+    }
+  }, [viewport])
+
+  // T10: Transform screen coords -> world coords (raw, before snap)
+  const screenToWorld = useCallback((sx, sy) => {
+    return {
+      x: sx / viewport.zoom - viewport.panX,
+      y: sy / viewport.zoom - viewport.panY,
+    }
+  }, [viewport])
+
   // Draw profile cross section at midpoint of a line segment
   const drawProfileCrossSection = useCallback((ctx, x1, y1, x2, y2, profile, isSelected, scale = 1) => {
-    const midX = (x1 + x2) / 2
-    const midY = (y1 + y2) / 2
-    const w = profile.width * scale
-    const h = profile.height * scale
-    const groove = profile.grooveWidth * scale
+    // Convert to screen coords first
+    const s1 = worldToScreen(x1, y1)
+    const s2 = worldToScreen(x2, y2)
+    const midX = (s1.x + s2.x) / 2
+    const midY = (s1.y + s2.y) / 2
+    const w = profile.width * scale * viewport.zoom
+    const h = profile.height * scale * viewport.zoom
+    const groove = profile.grooveWidth * scale * viewport.zoom
 
-    // Calculate angle
-    const angle = Math.atan2(y2 - y1, x2 - x1)
+    // Calculate angle (screen-space)
+    const angle = Math.atan2(s2.y - s1.y, s2.x - s1.x)
 
     ctx.save()
     ctx.translate(midX, midY)
@@ -71,42 +96,59 @@ export default function DrawingCanvas({ elements, onAddElement, onSelectElement,
     ctx.stroke()
 
     ctx.restore()
-  }, [])
+  }, [worldToScreen, viewport.zoom])
 
-  // Draw grid with soft black-white colors
+  // Draw grid with soft black-white colors (respects viewport)
   const drawGrid = useCallback((ctx, width, height) => {
     ctx.strokeStyle = '#181820'
     ctx.lineWidth = 0.5
 
-    for (let x = 0; x < width; x += gridSize) {
+    // Compute visible world-space bounds
+    const w0 = screenToWorld(0, 0)
+    const w1 = screenToWorld(width, height)
+    const startX = Math.floor(w0.x / gridSize) * gridSize
+    const endX = Math.ceil(w1.x / gridSize) * gridSize
+    const startY = Math.floor(w0.y / gridSize) * gridSize
+    const endY = Math.ceil(w1.y / gridSize) * gridSize
+
+    for (let wx = startX; wx <= endX; wx += gridSize) {
+      const sx = (wx + viewport.panX) * viewport.zoom
       ctx.beginPath()
-      ctx.moveTo(x, 0)
-      ctx.lineTo(x, height)
+      ctx.moveTo(sx, 0)
+      ctx.lineTo(sx, height)
       ctx.stroke()
     }
-    for (let y = 0; y < height; y += gridSize) {
+    for (let wy = startY; wy <= endY; wy += gridSize) {
+      const sy = (wy + viewport.panY) * viewport.zoom
       ctx.beginPath()
-      ctx.moveTo(0, y)
-      ctx.lineTo(width, y)
+      ctx.moveTo(0, sy)
+      ctx.lineTo(width, sy)
       ctx.stroke()
     }
 
-    // Major grid lines every 100px
+    // Major grid lines every 100px (world units)
     ctx.strokeStyle = '#222230'
     ctx.lineWidth = 1
-    for (let x = 0; x < width; x += 100) {
+    const majorStep = 100
+    const startMX = Math.floor(w0.x / majorStep) * majorStep
+    const endMX = Math.ceil(w1.x / majorStep) * majorStep
+    const startMY = Math.floor(w0.y / majorStep) * majorStep
+    const endMY = Math.ceil(w1.y / majorStep) * majorStep
+    for (let wx = startMX; wx <= endMX; wx += majorStep) {
+      const sx = (wx + viewport.panX) * viewport.zoom
       ctx.beginPath()
-      ctx.moveTo(x, 0)
-      ctx.lineTo(x, height)
+      ctx.moveTo(sx, 0)
+      ctx.lineTo(sx, height)
       ctx.stroke()
     }
-    for (let y = 0; y < height; y += 100) {
+    for (let wy = startMY; wy <= endMY; wy += majorStep) {
+      const sy = (wy + viewport.panY) * viewport.zoom
       ctx.beginPath()
-      ctx.moveTo(0, y)
-      ctx.lineTo(width, y)
+      ctx.moveTo(0, sy)
+      ctx.lineTo(width, sy)
       ctx.stroke()
     }
-  }, [gridSize])
+  }, [gridSize, viewport, screenToWorld])
 
   // Draw elements with soft black-white colors
   const drawElements = useCallback((ctx) => {
@@ -118,48 +160,52 @@ export default function DrawingCanvas({ elements, onAddElement, onSelectElement,
       ctx.strokeStyle = isSelected ? '#FFFFFF' : baseStroke
       ctx.lineWidth = isSelected ? 3 : 2
 
+      // T10: Convert world coords to screen coords
+      const s1 = worldToScreen(el.x1, el.y1)
+      const s2 = worldToScreen(el.x2, el.y2)
+
       if (el.type === 'line') {
         ctx.beginPath()
-        ctx.moveTo(el.x1, el.y1)
-        ctx.lineTo(el.x2, el.y2)
+        ctx.moveTo(s1.x, s1.y)
+        ctx.lineTo(s2.x, s2.y)
         ctx.stroke()
 
         // Endpoints
         ctx.fillStyle = isSelected ? '#FFFFFF' : '#888892'
         ctx.beginPath()
-        ctx.arc(el.x1, el.y1, 4, 0, Math.PI * 2)
+        ctx.arc(s1.x, s1.y, 4, 0, Math.PI * 2)
         ctx.fill()
         ctx.beginPath()
-        ctx.arc(el.x2, el.y2, 4, 0, Math.PI * 2)
+        ctx.arc(s2.x, s2.y, 4, 0, Math.PI * 2)
         ctx.fill()
 
         // Length label
-        const midX = (el.x1 + el.x2) / 2
-        const midY = (el.y1 + el.y2) / 2
+        const midX = (s1.x + s2.x) / 2
+        const midY = (s1.y + s2.y) / 2
         ctx.fillStyle = '#ECECEE'
         ctx.font = '12px "SF Mono", "Menlo", monospace'
         ctx.fillText(`${el.length}mm`, midX + 8, midY - 8)
 
-        // Profile cross section visualization (only for lines > 60px)
-        const lineLength = Math.sqrt((el.x2 - el.x1) ** 2 + (el.y2 - el.y1) ** 2)
+        // Profile cross section visualization (only for lines > 60 world units)
+        const worldLen = Math.sqrt((el.x2 - el.x1) ** 2 + (el.y2 - el.y1) ** 2)
         const profile = getProfile(el.profileSpec)
-        if (profile && lineLength > 60) {
-          const scale = Math.max(0.08, Math.min(0.22, Math.max(0.15, 30 / lineLength)))
-          drawProfileCrossSection(ctx, el.x1, el.y1, el.x2, el.y2, profile, isSelected, scale)
+        if (profile && worldLen > 60) {
+          const baseScale = Math.max(0.08, Math.min(0.22, Math.max(0.15, 30 / worldLen)))
+          drawProfileCrossSection(ctx, el.x1, el.y1, el.x2, el.y2, profile, isSelected, baseScale)
         }
       } else if (el.type === 'rect') {
-        const rx = Math.min(el.x1, el.x2)
-        const ry = Math.min(el.y1, el.y2)
-        const rw = Math.abs(el.x2 - el.x1)
-        const rh = Math.abs(el.y2 - el.y1)
+        const rx = Math.min(s1.x, s2.x)
+        const ry = Math.min(s1.y, s2.y)
+        const rw = Math.abs(s2.x - s1.x)
+        const rh = Math.abs(s2.y - s1.y)
 
         ctx.strokeRect(rx, ry, rw, rh)
 
         // Endpoints (corners)
         ctx.fillStyle = isSelected ? '#FFFFFF' : '#888892'
         const corners = [
-          [el.x1, el.y1], [el.x2, el.y1],
-          [el.x1, el.y2], [el.x2, el.y2]
+          [s1.x, s1.y], [s2.x, s1.y],
+          [s1.x, s2.y], [s2.x, s2.y]
         ]
         corners.forEach(([cx, cy]) => {
           ctx.beginPath()
@@ -174,21 +220,21 @@ export default function DrawingCanvas({ elements, onAddElement, onSelectElement,
         ctx.font = '12px "SF Mono", "Menlo", monospace'
         ctx.fillText(`${el.length}mm`, midX + 8, midY - 8)
 
-        // Profile cross section on one side of the rect
+        // Profile cross section on top side of rect
         const profile = getProfile(el.profileSpec)
         if (profile) {
-          const sideLength = rw
-          if (sideLength > 60) {
-            const scale = Math.max(0.08, Math.min(0.22, Math.max(0.15, 30 / sideLength)))
-            drawProfileCrossSection(ctx, rx, ry, rx + rw, ry, profile, isSelected, scale)
+          const worldSideLen = Math.abs(el.x2 - el.x1)
+          if (worldSideLen > 60) {
+            const baseScale = Math.max(0.08, Math.min(0.22, Math.max(0.15, 30 / worldSideLen)))
+            drawProfileCrossSection(ctx, el.x1, el.y1, el.x2, el.y1, profile, isSelected, baseScale)
           }
         }
       }
 
       // T05: Text label for the element (annotation like "支撑"/"上轨")
       if (el.label && el.label.trim()) {
-        const midX = (el.x1 + el.x2) / 2
-        const midY = (el.y1 + el.y2) / 2
+        const midX = (s1.x + s2.x) / 2
+        const midY = (s1.y + s2.y) / 2
         const labelText = el.label
         ctx.font = '13px Inter, -apple-system, sans-serif'
         const labelColor = el.labelColor || '#888892'
@@ -206,8 +252,8 @@ export default function DrawingCanvas({ elements, onAddElement, onSelectElement,
 
       // T04: Lock icon for locked elements
       if (el.locked) {
-        const midX = (el.x1 + el.x2) / 2
-        const midY = (el.y1 + el.y2) / 2
+        const midX = (s1.x + s2.x) / 2
+        const midY = (s1.y + s2.y) / 2
         const iconX = midX + 14
         const iconY = midY + 14
         // Background pill
@@ -229,25 +275,29 @@ export default function DrawingCanvas({ elements, onAddElement, onSelectElement,
         ctx.stroke()
       }
     })
-  }, [elements, selectedId, selectedIdsProp, drawProfileCrossSection])
+  }, [elements, selectedId, selectedIdsProp, drawProfileCrossSection, worldToScreen])
 
-  // Draw in-progress element
+  // Draw in-progress element (uses world coords, transformed inside)
   const drawDrawing = useCallback((ctx) => {
     if (!drawing) return
     ctx.setLineDash([5, 5])
+
+    // T10: Transform drawing points to screen space
+    const s1 = worldToScreen(drawing.x1, drawing.y1)
+    const s2 = worldToScreen(drawing.x2, drawing.y2)
 
     if (drawing.type === 'line') {
       ctx.strokeStyle = '#ECECEE'
       ctx.lineWidth = 2
       ctx.beginPath()
-      ctx.moveTo(drawing.x1, drawing.y1)
-      ctx.lineTo(drawing.x2, drawing.y2)
+      ctx.moveTo(s1.x, s1.y)
+      ctx.lineTo(s2.x, s2.y)
       ctx.stroke()
     } else if (drawing.type === 'rect') {
-      const rx = Math.min(drawing.x1, drawing.x2)
-      const ry = Math.min(drawing.y1, drawing.y2)
-      const rw = Math.abs(drawing.x2 - drawing.x1)
-      const rh = Math.abs(drawing.y2 - drawing.y1)
+      const rx = Math.min(s1.x, s2.x)
+      const ry = Math.min(s1.y, s2.y)
+      const rw = Math.abs(s2.x - s1.x)
+      const rh = Math.abs(s2.y - s1.y)
 
       // Semi-transparent fill
       ctx.fillStyle = 'rgba(236,236,238,0.06)'
@@ -259,10 +309,10 @@ export default function DrawingCanvas({ elements, onAddElement, onSelectElement,
       ctx.strokeRect(rx, ry, rw, rh)
     } else if (drawing.type === 'selection') {
       // T02: Box selection preview
-      const rx = Math.min(drawing.x1, drawing.x2)
-      const ry = Math.min(drawing.y1, drawing.y2)
-      const rw = Math.abs(drawing.x2 - drawing.x1)
-      const rh = Math.abs(drawing.y2 - drawing.y1)
+      const rx = Math.min(s1.x, s2.x)
+      const ry = Math.min(s1.y, s2.y)
+      const rw = Math.abs(s2.x - s1.x)
+      const rh = Math.abs(s2.y - s1.y)
 
       ctx.fillStyle = 'rgba(236,236,238,0.06)'
       ctx.fillRect(rx, ry, rw, rh)
@@ -272,7 +322,7 @@ export default function DrawingCanvas({ elements, onAddElement, onSelectElement,
     }
 
     ctx.setLineDash([])
-  }, [drawing])
+  }, [drawing, worldToScreen])
 
   // Full redraw
   const redraw = useCallback(() => {
@@ -318,7 +368,74 @@ export default function DrawingCanvas({ elements, onAddElement, onSelectElement,
     }
   }, [redraw])
 
-  // Get coordinates from mouse or touch event
+  // T10: Mouse wheel zoom (Ctrl+wheel for fine control)
+  const handleWheel = useCallback((e) => {
+    e.preventDefault()
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const rect = canvas.getBoundingClientRect()
+    // Mouse position in screen-space (relative to canvas)
+    const mx = e.clientX - rect.left
+    const my = e.clientY - rect.top
+
+    // Ctrl+wheel: zoom around mouse position
+    // Without Ctrl: still allow zoom but with smaller step
+    const isCtrl = e.ctrlKey || e.metaKey
+    const factor = isCtrl ? (e.deltaY > 0 ? 0.9 : 1.111) : (e.deltaY > 0 ? 0.95 : 1.053)
+
+    setViewport(prev => {
+      const newZoom = Math.min(5, Math.max(0.2, prev.zoom * factor))
+      // Zoom around mouse: keep world point under cursor stationary
+      // screen = (world + pan) * zoom => world = screen/zoom - pan
+      // After zoom, we want the same world point to be at the same screen pos:
+      // worldAtMouse = mx / newZoom - newPanX  (must equal mx / prev.zoom - prev.panX)
+      // => newPanX = mx / newZoom - (mx / prev.zoom - prev.panX)
+      const newPanX = mx / newZoom - (mx / prev.zoom - prev.panX)
+      const newPanY = my / newZoom - (my / prev.zoom - prev.panY)
+      return { zoom: newZoom, panX: newPanX, panY: newPanY }
+    })
+  }, [])
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    canvas.addEventListener('wheel', handleWheel, { passive: false })
+    return () => canvas.removeEventListener('wheel', handleWheel)
+  }, [handleWheel])
+
+  // T10: Spacebar to enable pan mode + keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      const tag = e.target?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+
+      if (e.key === ' ' || e.code === 'Space') {
+        if (!spacePressed) {
+          e.preventDefault()
+          setSpacePressed(true)
+        }
+      } else if (e.key === '0' && (e.ctrlKey || e.metaKey)) {
+        // Ctrl+0: reset zoom
+        e.preventDefault()
+        setViewport({ zoom: 1, panX: 0, panY: 0 })
+      }
+    }
+    const handleKeyUp = (e) => {
+      if (e.key === ' ' || e.code === 'Space') {
+        setSpacePressed(false)
+        setIsPanning(false)
+        panStateRef.current = null
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    window.addEventListener('keyup', handleKeyUp)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('keyup', handleKeyUp)
+    }
+  }, [spacePressed])
+
+  // Get coordinates from mouse or touch event (returns world coords snapped to grid + raw screen)
   const getCoords = useCallback((e) => {
     const canvas = canvasRef.current
     const rect = canvas.getBoundingClientRect()
@@ -335,14 +452,33 @@ export default function DrawingCanvas({ elements, onAddElement, onSelectElement,
       clientY = e.clientY
     }
 
-    const rawX = clientX - rect.left
-    const rawY = clientY - rect.top
-    return { rawX, rawY, x: snapToGrid(rawX), y: snapToGrid(rawY) }
-  }, [snapToGrid])
+    const rawScreenX = clientX - rect.left
+    const rawScreenY = clientY - rect.top
+    // Convert screen -> world
+    const world = screenToWorld(rawScreenX, rawScreenY)
+    return {
+      rawScreenX, rawScreenY,
+      rawX: world.x, rawY: world.y,
+      x: snapToGrid(world.x), y: snapToGrid(world.y),
+    }
+  }, [snapToGrid, screenToWorld])
 
   // Handle click/tap
   const handlePointerDown = useCallback((e) => {
-    const { rawX, rawY, x, y } = getCoords(e)
+    const { rawScreenX, rawScreenY, rawX, rawY, x, y } = getCoords(e)
+
+    // T10: Middle-click or Space+click → start panning
+    if (e.button === 1 || spacePressed) {
+      e.preventDefault()
+      setIsPanning(true)
+      panStateRef.current = {
+        startScreenX: rawScreenX,
+        startScreenY: rawScreenY,
+        startPanX: viewport.panX,
+        startPanY: viewport.panY,
+      }
+      return
+    }
 
     if (currentTool === 'line') {
       if (!drawing) {
@@ -453,12 +589,24 @@ export default function DrawingCanvas({ elements, onAddElement, onSelectElement,
         onAddElement(null, found)
       }
     }
-  }, [currentTool, drawing, currentProfile, elements, isMobile, snapToGrid, calcLength, onAddElement, onSelectElement, getCoords])
+  }, [currentTool, drawing, currentProfile, elements, isMobile, snapToGrid, calcLength, onAddElement, onSelectElement, getCoords, spacePressed, viewport])
 
   // Handle mouse/touch move
   const handlePointerMove = useCallback((e) => {
-    const { x, y } = getCoords(e)
+    const { x, y, rawScreenX, rawScreenY } = getCoords(e)
     setMousePos({ x, y })
+
+    // T10: If panning, update pan offset based on screen-space delta
+    if (isPanning && panStateRef.current) {
+      const dx = (rawScreenX - panStateRef.current.startScreenX) / viewport.zoom
+      const dy = (rawScreenY - panStateRef.current.startScreenY) / viewport.zoom
+      setViewport(prev => ({
+        ...prev,
+        panX: panStateRef.current.startPanX + dx,
+        panY: panStateRef.current.startPanY + dy,
+      }))
+      return
+    }
 
     if (drawing) {
       if (currentTool === 'line') {
@@ -470,10 +618,17 @@ export default function DrawingCanvas({ elements, onAddElement, onSelectElement,
         setDrawing(prev => ({ ...prev, x2: x, y2: y }))
       }
     }
-  }, [drawing, currentTool, getCoords])
+  }, [drawing, currentTool, getCoords, isPanning, viewport])
 
-  // T02: handlePointerUp - finalize box selection
+  // T02: handlePointerUp - finalize box selection or pan
   const handlePointerUp = useCallback(() => {
+    // End pan if active
+    if (isPanning) {
+      setIsPanning(false)
+      panStateRef.current = null
+      return
+    }
+
     if (!drawing) return
     if (drawing.type !== 'selection') return
 
@@ -507,7 +662,7 @@ export default function DrawingCanvas({ elements, onAddElement, onSelectElement,
       onSelectElement(null, [])
     }
     setDrawing(null)
-  }, [drawing, elements, onSelectElement])
+  }, [drawing, elements, onSelectElement, isPanning])
 
   // Cancel drawing
   const handleContextMenu = useCallback((e) => {
@@ -532,6 +687,11 @@ export default function DrawingCanvas({ elements, onAddElement, onSelectElement,
   // T02: Box selection count badge
   const selectionCount = selectedIdsProp && selectedIdsProp.length ? selectedIdsProp.length : (selectedId ? 1 : 0)
 
+  // T10: Reset viewport button handler
+  const handleResetView = useCallback(() => {
+    setViewport({ zoom: 1, panX: 0, panY: 0 })
+  }, [])
+
   return (
     <div ref={containerRef} style={{
       position: 'relative',
@@ -544,7 +704,9 @@ export default function DrawingCanvas({ elements, onAddElement, onSelectElement,
       <canvas
         ref={canvasRef}
         style={{
-          cursor: currentTool === 'select' ? 'pointer' : currentTool === 'delete' ? 'pointer' : 'crosshair',
+          cursor: spacePressed
+            ? (isPanning ? 'grabbing' : 'grab')
+            : currentTool === 'select' ? 'pointer' : currentTool === 'delete' ? 'pointer' : 'crosshair',
           display: 'block',
           width: '100%',
           height: '100%',
@@ -567,6 +729,50 @@ export default function DrawingCanvas({ elements, onAddElement, onSelectElement,
         fontFamily: '"SF Mono", "Menlo", monospace',
       }}>
         X: {mousePos.x} Y: {mousePos.y}
+      </div>
+      {/* T10: Zoom controls (bottom-right) */}
+      <div style={{
+        position: 'absolute', bottom: 8, right: 8,
+        display: 'flex', alignItems: 'center', gap: 4,
+        background: 'rgba(26,26,31,0.85)',
+        padding: '4px 6px',
+        borderRadius: 6,
+        fontFamily: '"SF Mono", "Menlo", monospace',
+        fontSize: 12, color: '#ECECEE',
+      }}>
+        <button
+          onClick={() => setViewport(v => ({ ...v, zoom: Math.max(0.2, v.zoom * 0.8) }))}
+          style={{
+            background: '#111114', color: '#ECECEE',
+            border: '1px solid #2E2E38',
+            borderRadius: 4, padding: '2px 8px',
+            cursor: 'pointer', fontSize: 14, lineHeight: 1,
+          }}
+          title="缩小"
+        >−</button>
+        <span style={{ minWidth: 48, textAlign: 'center', color: '#888892' }}>
+          {Math.round(viewport.zoom * 100)}%
+        </span>
+        <button
+          onClick={() => setViewport(v => ({ ...v, zoom: Math.min(5, v.zoom * 1.25) }))}
+          style={{
+            background: '#111114', color: '#ECECEE',
+            border: '1px solid #2E2E38',
+            borderRadius: 4, padding: '2px 8px',
+            cursor: 'pointer', fontSize: 14, lineHeight: 1,
+          }}
+          title="放大"
+        >+</button>
+        <button
+          onClick={handleResetView}
+          style={{
+            background: '#111114', color: '#ECECEE',
+            border: '1px solid #2E2E38',
+            borderRadius: 4, padding: '2px 8px',
+            cursor: 'pointer', fontSize: 11, marginLeft: 4,
+          }}
+          title="重置视图 (Ctrl+0)"
+        >重置</button>
       </div>
       {/* Drawing hint */}
       {drawingHintText && (
@@ -592,6 +798,19 @@ export default function DrawingCanvas({ elements, onAddElement, onSelectElement,
           fontFamily: '"SF Mono", "Menlo", monospace',
         }}>
           已选中 {selectionCount} 个图元
+        </div>
+      )}
+      {/* T10: Pan mode indicator (top-right) */}
+      {(spacePressed || isPanning) && (
+        <div style={{
+          position: 'absolute', top: 8, right: 8,
+          fontSize: 12, color: '#0C0C0F',
+          background: '#ECECEE',
+          padding: '4px 10px',
+          borderRadius: 6,
+          fontWeight: 600,
+        }}>
+          ✋ 平移模式
         </div>
       )}
     </div>
