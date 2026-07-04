@@ -8,8 +8,37 @@ import { ALUMINUM_PROFILES } from '../../lib/aluminum-profiles'
 import { exportCanvasAsPNG } from '../../lib/exporter'
 import { TEMPLATES, TEMPLATE_IDS, getTemplate, resolveTemplate } from '../../lib/templates'
 import { saveDesign, generateId, saveDraft, loadDraft, clearDraft } from '../../utils/storage'
-import { Save, Trash2, Layers, ClipboardList, X, Eye, Pencil, LayoutTemplate, ArrowLeft, ClipboardCopy, ClipboardPaste, AlignCenterHorizontal, AlignCenterVertical, Grid3x3, CloudCheck, CloudOff, ImageDown, Globe } from 'lucide-react'
+import { Save, Trash2, Layers, ClipboardList, X, Eye, Pencil, LayoutTemplate, ArrowLeft, ClipboardCopy, ClipboardPaste, AlignCenterHorizontal, AlignCenterVertical, Grid3x3, CloudCheck, CloudOff, ImageDown, Globe, History as HistoryIcon, Undo2, Redo2 } from 'lucide-react'
 import { t, loadLang, saveLang } from '../../lib/i18n'
+
+// T20: Action labels for history entries (bilingual via lang)
+const historyLabel = (key, lang = 'zh') => {
+  const labels = {
+    zh: {
+      add: '添加图元',
+      delete: '删除图元',
+      update: '编辑属性',
+      align: '对齐',
+      paste: '粘贴',
+      duplicate: '复制',
+      clear: '清空画布',
+      template: '加载模板',
+      import: '导入设计',
+    },
+    en: {
+      add: 'Add element',
+      delete: 'Delete element',
+      update: 'Update property',
+      align: 'Align',
+      paste: 'Paste',
+      duplicate: 'Duplicate',
+      clear: 'Clear canvas',
+      template: 'Load template',
+      import: 'Import design',
+    },
+  }
+  return labels[lang]?.[key] || labels.zh[key] || key
+}
 
 export default function EditorPage({ isMobile }) {
   const [elements, setElements] = useState([])
@@ -19,7 +48,24 @@ export default function EditorPage({ isMobile }) {
   const [selectedIds, setSelectedIds] = useState([]) // T02: box-selection array
   const [viewMode, setViewMode] = useState('2d')
   const [history, setHistory] = useState([])
+  // T20: Parallel array of {label, at} entries for the history panel.
+  // Indexes line up with `history` (history[i] <-> historyLabels[i]).
+  const [historyLabels, setHistoryLabels] = useState([])
   const [future, setFuture] = useState([])
+  // T20: Mirror of historyLabels — needed so Redo restores labels.
+  const [futureLabels, setFutureLabels] = useState([])
+  // T20: Unified history-snapshot pusher. Records `snapshot` as the previous
+  // state AND a labelled entry into `historyLabels`. Defaults to a generic
+  // "edit" label in the active UI language.
+  const pushHistorySnapshot = useCallback((label, snapshot) => {
+    setHistory(h => [...h, snapshot])
+    setHistoryLabels(l => [...l, { label: label || historyLabel('update', lang), at: Date.now() }])
+    // Truncate future on a new edit (standard editor behaviour)
+    setFuture([])
+    setFutureLabels([])
+  }, [lang])
+  // T20: Toggles the history panel inside the right sidebar
+  const [showHistory, setShowHistory] = useState(false)
   const [sheetOpen, setSheetOpen] = useState(false)
   const [sheetTab, setSheetTab] = useState('property')
   const [mode, setMode] = useState('draw') // 'draw' | 'view'
@@ -65,8 +111,7 @@ export default function EditorPage({ isMobile }) {
       x2: el.x2 + 20,
       y2: el.y2 + 20,
     }))
-    setHistory(h => [...h, [...elements]])
-    setFuture([])
+    pushHistorySnapshot('paste', [...elements])
     setElements(prev => [...prev, ...newEls])
     // Update clipboard to track pasted copy
     setClipboard(newEls.map(el => ({ ...el })))
@@ -173,14 +218,10 @@ export default function EditorPage({ isMobile }) {
 
   const handleAddElement = useCallback((newElement, deleteId) => {
     if (deleteId) {
-      const prev = [...elements]
-      setHistory(h => [...h, prev])
-      setFuture([])
+      pushHistorySnapshot('delete', [...elements])
       setElements(elements.filter(el => el.id !== deleteId))
     } else if (newElement) {
-      const prev = [...elements]
-      setHistory(h => [...h, prev])
-      setFuture([])
+      pushHistorySnapshot('add', [...elements])
       setElements([...elements, newElement])
     }
   }, [elements])
@@ -205,26 +246,23 @@ export default function EditorPage({ isMobile }) {
       // All selected were locked — silently skip
       return
     }
-    setHistory(h => [...h, [...elements]])
-    setFuture([])
+    pushHistorySnapshot('delete', [...elements])
     setElements(prev => prev.filter(el => !deletableIds.includes(el.id)))
     setSelectedId(null)
     setSelectedIds([])
-  }, [selectedIds, selectedId, elements])
+  }, [selectedIds, selectedId, elements, pushHistorySnapshot])
 
   // T04: Update element (for lock toggle and future property edits)
   const handleUpdateElement = useCallback((id, updates) => {
-    setHistory(h => [...h, [...elements]])
-    setFuture([])
+    pushHistorySnapshot('update', [...elements])
     setElements(prev => prev.map(el => el.id === id ? { ...el, ...updates } : el))
-  }, [elements])
+  }, [elements, pushHistorySnapshot])
 
   // T13: Update a single coordinate (x1/y1/x2/y2). For lines, also recompute `length`.
   const handleUpdateCoordinate = useCallback((id, axis, value) => {
     const num = Number(value)
     if (Number.isNaN(num)) return
-    setHistory(h => [...h, [...elements]])
-    setFuture([])
+    pushHistorySnapshot('update', [...elements])
     setElements(prev => prev.map(el => {
       if (el.id !== id) return el
       const next = { ...el, [axis]: num }
@@ -236,7 +274,7 @@ export default function EditorPage({ isMobile }) {
       }
       return next
     }))
-  }, [elements])
+  }, [elements, pushHistorySnapshot])
 
   // T19: Replace current design with imported JSON contents.
   // Sanitises each element to guard against malformed data and re-mints IDs
@@ -255,15 +293,14 @@ export default function EditorPage({ isMobile }) {
         }
       })
       .filter(Boolean)
-    setHistory(h => [...h, [...elements]])
-    setFuture([])
+    pushHistorySnapshot('import', [...elements])
     setElements(sanitized)
     if (design.currentProfile || design.profile) {
       setCurrentProfile(design.currentProfile || design.profile)
     }
     setSelectedId(null)
     setSelectedIds([])
-  }, [elements])
+  }, [elements, pushHistorySnapshot])
 
   // T04: Toggle lock state of currently selected element
   const handleToggleLock = useCallback(() => {
@@ -279,8 +316,7 @@ export default function EditorPage({ isMobile }) {
   const handleAlign = useCallback((type) => {
     const targetIds = selectedIds.length > 1 ? selectedIds : (selectedId ? [selectedId] : [])
     if (targetIds.length === 0) return
-    setHistory(h => [...h, [...elements]])
-    setFuture([])
+    pushHistorySnapshot('align', [...elements])
     setElements(prev => prev.map(x => {
       if (!targetIds.includes(x.id)) return x
       if (type === 'centerH') {
@@ -332,23 +368,48 @@ export default function EditorPage({ isMobile }) {
       }
       return x
     }))
-  }, [selectedId, selectedIds, elements])
+  }, [selectedId, selectedIds, elements, pushHistorySnapshot])
 
   const handleUndo = useCallback(() => {
     if (history.length === 0) return
     const prev = history[history.length - 1]
+    const poppedLabel = historyLabels[historyLabels.length - 1]
     setHistory(h => h.slice(0, -1))
+    setHistoryLabels(l => l.slice(0, -1))
     setFuture(f => [...f, [...elements]])
+    // Push a pseudo-label for future entry (use same label as what we're undoing)
+    setFutureLabels(fl => [...fl, poppedLabel])
     setElements(prev)
-  }, [history, elements])
+  }, [history, historyLabels, elements])
 
   const handleRedo = useCallback(() => {
     if (future.length === 0) return
     const next = future[future.length - 1]
+    const nextLabel = (futureLabels && futureLabels[futureLabels.length - 1]) || 'edit'
     setFuture(f => f.slice(0, -1))
+    setFutureLabels(fl => (fl || []).slice(0, -1))
     setHistory(h => [...h, [...elements]])
+    setHistoryLabels(l => [...l, { label: nextLabel, at: Date.now() }])
     setElements(next)
-  }, [future, elements])
+  }, [future, futureLabels, elements])
+
+  // T20: Jump to an arbitrary history entry by index. Truncates everything
+  // after that index into `future` so redo works from the new state.
+  const handleJumpToHistory = useCallback((targetIdx) => {
+    if (targetIdx < 0 || targetIdx >= history.length) return
+    const targetSnap = history[targetIdx]
+    // Save current state to future (and its current label, if available)
+    const currentLabel = (() => {
+      // Pull most recent label from either historyLabels (if any) or futureLabels
+      const lastHistLabel = historyLabels[historyLabels.length - 1]
+      return lastHistLabel || { label: historyLabel('update', lang), at: Date.now() }
+    })()
+    setHistory(h => h.slice(0, targetIdx))
+    setHistoryLabels(l => l.slice(0, targetIdx))
+    setFuture(f => [...f, [...elements]])
+    setFutureLabels(fl => [...(fl || []), currentLabel])
+    setElements(targetSnap)
+  }, [history, historyLabels, futureLabels, lang, elements])
 
   const selectedElement = elements.find(el => el.id === selectedId) || null
 
@@ -364,8 +425,7 @@ export default function EditorPage({ isMobile }) {
   }, [elements, lang])
 
   const handleClear = useCallback(() => {
-    setHistory(h => [...h, [...elements]])
-    setFuture([])
+    pushHistorySnapshot('clear', [...elements])
     setElements([])
     setSelectedId(null)
     setSelectedIds([])
@@ -373,7 +433,7 @@ export default function EditorPage({ isMobile }) {
     clearDraft()
     setLastSavedAt(null)
     if (isMobile) setSheetOpen(false)
-  }, [elements, isMobile])
+  }, [elements, isMobile, pushHistorySnapshot])
 
   // T09: Load template with optional params for parameterized templates
   const handleLoadTemplate = useCallback((templateId, params = {}) => {
@@ -381,8 +441,7 @@ export default function EditorPage({ isMobile }) {
     if (!template) return
 
     // Save current state to history
-    setHistory(h => [...h, [...elements]])
-    setFuture([])
+    pushHistorySnapshot('template', [...elements])
 
     // Resolve template (handles parameterized templates via resolveTemplate)
     const resolved = resolveTemplate(templateId, params) || template
@@ -398,7 +457,7 @@ export default function EditorPage({ isMobile }) {
     setCurrentProfile(template.profile)
     setShowTemplateModal(false)
     setMode('draw')
-  }, [elements])
+  }, [elements, pushHistorySnapshot])
 
   const toolHint =
     currentTool === 'line' ? t('hintLine', lang) :
@@ -629,6 +688,165 @@ export default function EditorPage({ isMobile }) {
     </div>
   )
 
+  // T20: History panel component. Shows recent edits in a collapsible list.
+  // Clicking an entry calls onJumpToHistory(index), which truncates everything
+  // past that index into `future` so redo still works.
+  const HistoryPanel = ({
+    history, historyLabels, onJumpToHistory,
+    showHistory, onToggleShow,
+    onUndo, onRedo, canUndo, canRedo,
+    lang,
+  }) => {
+    // Show most recent first, cap at 20 visible
+    const visible = (historyLabels || [])
+      .map((entry, idx) => ({ entry, idx }))
+      .slice(-20)
+      .reverse()
+    const totalCount = historyLabels?.length || 0
+    const formatTime = (ts) => {
+      const d = new Date(ts)
+      const pad = (n) => String(n).padStart(2, '0')
+      return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+    }
+    return (
+      <div style={{
+        borderTop: '1px solid #2E2E38',
+        background: '#111114',
+      }}>
+        {/* Header bar with toggle */}
+        <div style={{
+          display: 'flex', alignItems: 'center',
+          padding: '8px 12px',
+          gap: 8,
+        }}>
+          <HistoryIcon size={16} style={{ color: '#ECECEE' }} />
+          <span style={{
+            fontSize: 13, fontWeight: 600, color: '#ECECEE',
+            flex: 1,
+          }}>
+            {lang === 'en' ? 'History' : '历史记录'}
+          </span>
+          {totalCount > 0 && (
+            <span style={{
+              fontSize: 11, color: '#888892',
+              background: '#1A1A1F', padding: '2px 6px',
+              borderRadius: 4, fontFamily: '"SF Mono","Menlo",monospace',
+            }}>
+              {totalCount}
+            </span>
+          )}
+          <button
+            onClick={onUndo}
+            disabled={!canUndo}
+            title={lang === 'en' ? 'Undo' : '撤销'}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: 28, height: 28,
+              background: canUndo ? '#1A1A1F' : 'transparent',
+              color: canUndo ? '#ECECEE' : '#555560',
+              border: '1px solid #2E2E38',
+              borderRadius: 6, cursor: canUndo ? 'pointer' : 'not-allowed',
+              padding: 0,
+            }}
+          >
+            <Undo2 size={14} />
+          </button>
+          <button
+            onClick={onRedo}
+            disabled={!canRedo}
+            title={lang === 'en' ? 'Redo' : '重做'}
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: 28, height: 28,
+              background: canRedo ? '#1A1A1F' : 'transparent',
+              color: canRedo ? '#ECECEE' : '#555560',
+              border: '1px solid #2E2E38',
+              borderRadius: 6, cursor: canRedo ? 'pointer' : 'not-allowed',
+              padding: 0,
+            }}
+          >
+            <Redo2 size={14} />
+          </button>
+          <button
+            onClick={onToggleShow}
+            style={{
+              background: 'transparent', border: 'none',
+              color: '#888892', cursor: 'pointer', padding: 0,
+              fontSize: 14, lineHeight: 1,
+              transform: showHistory ? 'rotate(180deg)' : 'rotate(0deg)',
+              transition: 'transform 0.2s',
+            }}
+            title={showHistory ? (lang === 'en' ? 'Collapse' : '收起') : (lang === 'en' ? 'Expand' : '展开')}
+          >
+            ▾
+          </button>
+        </div>
+
+        {/* Collapsible body — only when expanded AND we have entries */}
+        {showHistory && visible.length > 0 && (
+          <div style={{
+            maxHeight: 200,
+            overflowY: 'auto',
+            borderTop: '1px solid #2E2E38',
+            background: '#0C0C0F',
+          }}>
+            {visible.map(({ entry, idx }) => {
+              const labelText = typeof entry.label === 'string'
+                ? (historyLabel(entry.label, lang) || entry.label)
+                : (entry.label?.label || historyLabel('update', lang))
+              const ts = entry.at || Date.now()
+              return (
+                <button
+                  key={`${idx}-${ts}`}
+                  onClick={() => onJumpToHistory(idx)}
+                  style={{
+                    display: 'flex', alignItems: 'center',
+                    width: '100%',
+                    padding: '8px 12px',
+                    background: 'transparent',
+                    color: '#ECECEE',
+                    border: 'none',
+                    borderBottom: '1px solid #1A1A1F',
+                    textAlign: 'left', cursor: 'pointer',
+                    fontSize: 12,
+                    gap: 8,
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = '#1A1A1F' }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
+                  title={lang === 'en' ? 'Click to jump to this state' : '点击跳转到该状态'}
+                >
+                  <span style={{
+                    flex: 1, color: '#ECECEE',
+                    fontFamily: '"SF Mono","Menlo",monospace',
+                  }}>
+                    {labelText}
+                  </span>
+                  <span style={{
+                    color: '#888892',
+                    fontFamily: '"SF Mono","Menlo",monospace',
+                    fontSize: 11,
+                  }}>
+                    {formatTime(ts)}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        )}
+        {showHistory && visible.length === 0 && (
+          <div style={{
+            padding: '12px',
+            fontSize: 12, color: '#555560',
+            textAlign: 'center',
+            background: '#0C0C0F',
+          }}>
+            {lang === 'en' ? 'No history yet' : '暂无历史记录'}
+          </div>
+        )}
+      </div>
+    )
+  }
+
   // ===== DESKTOP LAYOUT =====
   if (!isMobile) {
     if (mode === 'view') {
@@ -827,6 +1045,20 @@ export default function EditorPage({ isMobile }) {
               onImportDesign={handleImportDesign}
             />
           </div>
+
+          {/* T20: Undo/Redo history panel */}
+          <HistoryPanel
+            history={history}
+            historyLabels={historyLabels}
+            onJumpToHistory={handleJumpToHistory}
+            showHistory={showHistory}
+            onToggleShow={() => setShowHistory(s => !s)}
+            onUndo={handleUndo}
+            onRedo={handleRedo}
+            canUndo={history.length > 0}
+            canRedo={future.length > 0}
+            lang={lang}
+          />
         </div>
 
         {showTemplateModal && <TemplateModal />}
