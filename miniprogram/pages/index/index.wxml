@@ -1,0 +1,40 @@
+<view class="page-container">
+  <!-- 顶部状态 -->
+  <view class="top-bar">
+    <text class="title">铝型材设计器</text>
+    <text class="count">{{elementsCount}} 个图元</text>
+    <button class="btn-save" bindtap="onSave">保存</button>
+    <button class="btn-danger" bindtap="onClear">清空</button>
+  </view>
+  
+  <!-- 画布 -->
+  <canvas 
+    class="canvas" 
+    canvas-id="mainCanvas"
+    bindtap="onCanvasTap"
+    bindtouchstart="onTouchStart"
+    bindtouchmove="onTouchMove"
+  />
+  
+  <!-- 底部工具栏 -->
+  <view class="bottom-bar">
+    <button 
+      wx:for="{{tools}}" 
+      wx:key="id"
+      class="tool-btn {{currentTool === item.id ? 'active' : ''}}"
+      data-tool="{{item.id}}"
+      bindtap="onToolChange"
+    >
+      {{item.label}}
+    </button>
+    
+    <!-- 型材选择 -->
+    <picker 
+      mode="selector"
+      range="{{profileList}}"
+      bindchange="onProfileChange"
+    >
+      <view class="tool-btn">{{currentProfile}}</view>
+    </picker>
+  </view>
+</view>

@@ -1,0 +1,16 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/profile-library/profile-library",
+    "pages/material-list/material-list"
+  ],
+  "window": {
+    "navigationBarBackgroundColor": "#111114",
+    "navigationBarTextStyle": "white",
+    "navigationBarTitleText": "铝型材设计器",
+    "backgroundColor": "#111114",
+    "backgroundTextStyle": "dark"
+  },
+  "usingComponents": {},
+  "sitemapLocation": "sitemap.json"
+}

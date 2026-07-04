@@ -1,0 +1,36 @@
+<view class="page-container">
+  <!-- 顶部 -->
+  <view class="top-bar">
+    <text class="title">材料清单</text>
+    <button class="btn-export" bindtap="onExport">导出</button>
+  </view>
+
+  <!-- 统计摘要 -->
+  <view class="summary">
+    <view 
+      wx:for="{{summaryItems}}" 
+      wx:key="label"
+      class="summary-item"
+    >
+      <text class="summary-label">{{item.label}}</text>
+      <text class="summary-value">{{item.value}}</text>
+    </view>
+  </view>
+
+  <!-- 材料明细列表 -->
+  <scroll-view class="material-list" scroll-y="true">
+    <view 
+      wx:for="{{materials}}" 
+      wx:key="profile"
+      class="material-item"
+    >
+      <text class="material-profile">{{item.profile}}</text>
+      <text class="material-count">{{item.count}} 件</text>
+      <text class="material-length">{{item.length}} mm</text>
+    </view>
+
+    <view wx:if="{{materials.length === 0}}" class="empty-tip">
+      <text>暂无材料数据，请先在编辑器中添加图元</text>
+    </view>
+  </scroll-view>
+</view>

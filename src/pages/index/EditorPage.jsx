@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import Toolbar from '../../components/toolbar/Toolbar'
 import DrawingCanvas from '../../components/canvas-2d/DrawingCanvas'
 import Viewer3D from '../../components/canvas-3d/Viewer3D'
@@ -7,7 +7,7 @@ import MaterialList from '../../components/material-list/MaterialList'
 import { ALUMINUM_PROFILES } from '../../lib/aluminum-profiles'
 import { TEMPLATES, TEMPLATE_IDS, getTemplate } from '../../lib/templates'
 import { saveDesign, generateId } from '../../utils/storage'
-import { Save, Trash2, Layers, ClipboardList, X, Eye, Pencil, LayoutTemplate, ArrowLeft } from 'lucide-react'
+import { Save, Trash2, Layers, ClipboardList, X, Eye, Pencil, LayoutTemplate, ArrowLeft, ClipboardCopy, ClipboardPaste } from 'lucide-react'
 
 export default function EditorPage({ isMobile }) {
   const [elements, setElements] = useState([])
@@ -21,6 +21,71 @@ export default function EditorPage({ isMobile }) {
   const [sheetTab, setSheetTab] = useState('property')
   const [mode, setMode] = useState('draw') // 'draw' | 'view'
   const [showTemplateModal, setShowTemplateModal] = useState(false)
+  const [clipboard, setClipboard] = useState([]) // T01: clipboard for copy/paste
+
+  // T01: Copy selected element to clipboard
+  const handleCopy = useCallback(() => {
+    if (!selectedId) return
+    const el = elements.find(x => x.id === selectedId)
+    if (el) setClipboard([{ ...el, id: 'el-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6) }])
+  }, [selectedId, elements])
+
+  // T01: Paste clipboard contents
+  const handlePaste = useCallback(() => {
+    if (clipboard.length === 0) return
+    const newEls = clipboard.map(el => ({
+      ...el,
+      id: 'el-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6),
+      x1: el.x1 + 20,
+      y1: el.y1 + 20,
+      x2: el.x2 + 20,
+      y2: el.y2 + 20,
+    }))
+    setHistory(h => [...h, [...elements]])
+    setFuture([])
+    setElements(prev => [...prev, ...newEls])
+    // Update clipboard to track pasted copy
+    setClipboard(newEls.map(el => ({ ...el })))
+  }, [clipboard, elements])
+
+  // T01: Duplicate selected element in place (Ctrl+D)
+  const handleDuplicate = useCallback(() => {
+    if (!selectedId) return
+    const el = elements.find(x => x.id === selectedId)
+    if (!el) return
+    const copy = {
+      ...el,
+      id: 'el-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6),
+      x1: el.x1 + 20,
+      y1: el.y1 + 20,
+      x2: el.x2 + 20,
+      y2: el.y2 + 20,
+    }
+    handleAddElement(copy)
+    setSelectedId(copy.id)
+  }, [selectedId, elements, handleAddElement])
+
+  // T01: Keyboard shortcuts for copy/paste/duplicate
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Ignore when typing in input fields
+      const tag = e.target?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+
+      if (e.ctrlKey && (e.key === 'c' || e.key === 'C')) {
+        e.preventDefault()
+        handleCopy()
+      } else if (e.ctrlKey && (e.key === 'v' || e.key === 'V')) {
+        e.preventDefault()
+        handlePaste()
+      } else if (e.ctrlKey && (e.key === 'd' || e.key === 'D')) {
+        e.preventDefault()
+        handleDuplicate()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [handleCopy, handlePaste, handleDuplicate])
 
   const handleAddElement = useCallback((newElement, deleteId) => {
     if (deleteId) {
@@ -241,6 +306,11 @@ export default function EditorPage({ isMobile }) {
           mode={mode}
           onModeChange={setMode}
           onTemplateClick={() => setShowTemplateModal(true)}
+          onCopy={handleCopy}
+          onPaste={handlePaste}
+          onDuplicate={handleDuplicate}
+          canCopy={!!selectedId}
+          canPaste={clipboard.length > 0}
         />
 
         <div className="desktop-canvas-area">
@@ -386,6 +456,11 @@ export default function EditorPage({ isMobile }) {
           mode={mode}
           onModeChange={setMode}
           onTemplateClick={() => setShowTemplateModal(true)}
+          onCopy={handleCopy}
+          onPaste={handlePaste}
+          onDuplicate={handleDuplicate}
+          canCopy={!!selectedId}
+          canPaste={clipboard.length > 0}
         />
       </div>
 

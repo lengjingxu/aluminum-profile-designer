@@ -6,7 +6,7 @@
 ---
 
 ## T01 - 复制/粘贴图元 + Ctrl+D
-**状态：pending**
+**状态：done**
 复制选中图元（Ctrl+C），粘贴（Ctrl+V），原地复制（Ctrl+D）
 文件：src/components/canvas-2d/DrawingCanvas.jsx, src/pages/index/EditorPage.jsx
 

@@ -1,0 +1,97 @@
+.page-container {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #111114;
+  color: #ECECEE;
+}
+
+.top-bar {
+  height: 52px;
+  padding: 0 14px;
+  background: #1A1A1F;
+  border-bottom: 1px solid #2E2E38;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #ECECEE;
+}
+
+.desc {
+  font-size: 12px;
+  color: #888892;
+}
+
+.profile-list {
+  flex: 1;
+  padding: 12px;
+}
+
+.profile-card {
+  background: #1A1A1F;
+  border: 1px solid #2E2E38;
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.profile-card.active {
+  border-color: #FFFFFF;
+  background: rgba(255,255,255,0.05);
+}
+
+.profile-icon {
+  width: 48px;
+  height: 48px;
+  background: #2E2E38;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: #ECECEE;
+}
+
+.profile-card.active .profile-icon {
+  background: #FFFFFF;
+  color: #111114;
+}
+
+.profile-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.profile-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #ECECEE;
+}
+
+.profile-desc {
+  font-size: 12px;
+  color: #888892;
+}
+
+.profile-weight {
+  font-size: 11px;
+  color: #888892;
+  font-family: monospace;
+}
+
+.profile-size {
+  font-size: 12px;
+  font-family: monospace;
+  color: #888892;
+}

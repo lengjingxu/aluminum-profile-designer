@@ -1,5 +1,5 @@
 import { getProfileIds, getProfile } from '../../lib/aluminum-profiles'
-import { MousePointer2, Minus, Square, Trash2, Undo2, Redo2, Rotate3d, Grid3x3, Eye, LayoutTemplate } from 'lucide-react'
+import { MousePointer2, Minus, Square, Trash2, Undo2, Redo2, Rotate3d, Grid3x3, Eye, LayoutTemplate, ClipboardCopy, ClipboardPaste, Copy } from 'lucide-react'
 
 export default function Toolbar({
   currentTool, onToolChange,
@@ -10,6 +10,7 @@ export default function Toolbar({
   isMobile = false,
   mode = 'draw', onModeChange,
   onTemplateClick,
+  onCopy, onPaste, onDuplicate, canCopy, canPaste,
 }) {
   const tools = [
     { id: 'select', label: '选择', Icon: MousePointer2 },
@@ -88,6 +89,28 @@ export default function Toolbar({
         >
           <Redo2 size={20} />
         </button>
+        {onCopy && (
+          <button
+            className="tool-btn"
+            onClick={onCopy}
+            disabled={!canCopy}
+            title="复制 (Ctrl+C)"
+            style={{ opacity: canCopy ? 1 : 0.4 }}
+          >
+            <ClipboardCopy size={20} />
+          </button>
+        )}
+        {onPaste && (
+          <button
+            className="tool-btn"
+            onClick={onPaste}
+            disabled={!canPaste}
+            title="粘贴 (Ctrl+V)"
+            style={{ opacity: canPaste ? 1 : 0.4 }}
+          >
+            <ClipboardPaste size={20} />
+          </button>
+        )}
       </>
     )
   }
@@ -170,6 +193,45 @@ export default function Toolbar({
         <Redo2 size={18} />
         <span>重做</span>
       </button>
+
+      <div style={{ height: 1, background: '#2E2E38', margin: '4px 0' }} />
+
+      {onCopy && (
+        <button
+          className="tool-btn"
+          onClick={onCopy}
+          disabled={!canCopy}
+          title="复制选中 (Ctrl+C)"
+          style={{ opacity: canCopy ? 1 : 0.4 }}
+        >
+          <ClipboardCopy size={18} />
+          <span>复制</span>
+        </button>
+      )}
+      {onPaste && (
+        <button
+          className="tool-btn"
+          onClick={onPaste}
+          disabled={!canPaste}
+          title="粘贴 (Ctrl+V)"
+          style={{ opacity: canPaste ? 1 : 0.4 }}
+        >
+          <ClipboardPaste size={18} />
+          <span>粘贴</span>
+        </button>
+      )}
+      {onDuplicate && (
+        <button
+          className="tool-btn"
+          onClick={onDuplicate}
+          disabled={!canCopy}
+          title="原地复制 (Ctrl+D)"
+          style={{ opacity: canCopy ? 1 : 0.4 }}
+        >
+          <Copy size={18} />
+          <span>副本</span>
+        </button>
+      )}
 
       <div style={{ height: 1, background: '#2E2E38', margin: '4px 0' }} />
 

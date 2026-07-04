@@ -1,0 +1,26 @@
+<view class="page-container">
+  <!-- 顶部 -->
+  <view class="top-bar">
+    <text class="title">型材库</text>
+    <text class="desc">选择画图型材规格</text>
+  </view>
+
+  <!-- 型材卡片列表 -->
+  <scroll-view class="profile-list" scroll-y="true">
+    <view 
+      wx:for="{{profiles}}" 
+      wx:key="id"
+      class="profile-card {{currentProfile === item.id ? 'active' : ''}}"
+      data-id="{{item.id}}"
+      bindtap="onSelectProfile"
+    >
+      <view class="profile-icon">{{item.id}}</view>
+      <view class="profile-info">
+        <text class="profile-name">{{item.name}}</text>
+        <text class="profile-desc">{{item.desc}}</text>
+        <text class="profile-weight">{{item.weight}} kg/m</text>
+      </view>
+      <view class="profile-size">{{item.width}}×{{item.height}}mm</view>
+    </view>
+  </scroll-view>
+</view>

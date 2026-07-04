@@ -1,0 +1,45 @@
+/* 全局样式 - 与 Web 版本保持一致的黑白设计系统 */
+
+page {
+  background: #111114;
+  color: #ECECEE;
+  font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Helvetica, 'PingFang SC', 'Microsoft YaHei', Arial, sans-serif;
+}
+
+/* 全局通用按钮样式 */
+button {
+  border: none;
+  background: transparent;
+  color: #ECECEE;
+  font-size: 14px;
+  padding: 0;
+  margin: 0;
+  line-height: normal;
+}
+
+button::after {
+  border: none;
+}
+
+/* 全局文字样式 */
+text {
+  color: #ECECEE;
+}
+
+/* 全局滚动视图 */
+scroll-view {
+  background: #111114;
+}
+
+/* 全局卡片容器 */
+.card {
+  background: #1A1A1F;
+  border: 1px solid #2E2E38;
+  border-radius: 12px;
+  padding: 14px;
+}
+
+/* 设计系统色值变量（注释记录，小程序不支持 CSS 变量） */
+/* 背景色: #111114 (主背景), #1A1A1F (卡片/栏), #0C0C0F (画布), #2E2E38 (边框) */
+/* 文字色: #ECECEE (主文字), #888892 (次要文字) */
+/* 功能色: rgba(255,255,255,0.08) (按钮), rgba(104,104,120,0.15) (危险按钮) */
