@@ -159,6 +159,25 @@ export default function EditorPage({ isMobile }) {
     setElements(prev => prev.map(el => el.id === id ? { ...el, ...updates } : el))
   }, [elements])
 
+  // T13: Update a single coordinate (x1/y1/x2/y2). For lines, also recompute `length`.
+  const handleUpdateCoordinate = useCallback((id, axis, value) => {
+    const num = Number(value)
+    if (Number.isNaN(num)) return
+    setHistory(h => [...h, [...elements]])
+    setFuture([])
+    setElements(prev => prev.map(el => {
+      if (el.id !== id) return el
+      const next = { ...el, [axis]: num }
+      // Recompute derived length for line elements
+      if (el.type === 'line') {
+        const dx = (next.x2 ?? el.x2) - (next.x1 ?? el.x1)
+        const dy = (next.y2 ?? el.y2) - (next.y1 ?? el.y1)
+        next.length = Math.round(Math.sqrt(dx * dx + dy * dy))
+      }
+      return next
+    }))
+  }, [elements])
+
   // T04: Toggle lock state of currently selected element
   const handleToggleLock = useCallback(() => {
     if (!selectedId) return
@@ -659,6 +678,7 @@ export default function EditorPage({ isMobile }) {
           <PropertyPanel
             selectedElement={selectedElement}
             onUpdateElement={handleUpdateElement}
+            onUpdateCoordinate={handleUpdateCoordinate}
             onAlign={handleAlign}
             isMobile={false}
           />
@@ -801,6 +821,7 @@ export default function EditorPage({ isMobile }) {
           <PropertyPanel
             selectedElement={selectedElement}
             onUpdateElement={handleUpdateElement}
+            onUpdateCoordinate={handleUpdateCoordinate}
             onAlign={handleAlign}
             isMobile={true}
           />

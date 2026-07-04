@@ -1,7 +1,7 @@
 import { getProfile, getProfileName, getProfileIds, ALUMINUM_PROFILES } from '../../lib/aluminum-profiles'
 import { Layers, Ruler, Box, MapPin, AlignCenterHorizontal, AlignCenterVertical, AlignHorizontalDistributeCenter, AlignVerticalDistributeCenter, Lock, Unlock, Tag, TrendingUp } from 'lucide-react'
 
-export default function PropertyPanel({ selectedElement, onUpdateElement, onAlign, isMobile = false }) {
+export default function PropertyPanel({ selectedElement, onUpdateElement, onUpdateCoordinate, onAlign, isMobile = false }) {
   if (!selectedElement) {
     return (
       <div className="panel-section" style={{ textAlign: 'center' }}>
@@ -165,14 +165,73 @@ export default function PropertyPanel({ selectedElement, onUpdateElement, onAlig
         )
       })()}
 
-      {/* Coordinates */}
+      {/* T13: Editable coordinates */}
       <div style={{ borderTop: '1px solid #2E2E38', paddingTop: 10 }}>
-        <div className="panel-label">
-          <MapPin size={12} style={{ marginRight: 4, verticalAlign: 'middle' }} /> {el.type === 'rect' ? '对角坐标' : '起点坐标'}
+        <div className="panel-label" style={{ marginBottom: 6 }}>
+          <MapPin size={12} style={{ marginRight: 4, verticalAlign: 'middle' }} />
+          {el.type === 'rect' ? '对角起点 (X1, Y1)' : '起点坐标 (X1, Y1)'}
         </div>
-        <div className="panel-value-mono">({el.x1}, {el.y1})</div>
-        <div className="panel-label" style={{ marginTop: 6 }}>{el.type === 'rect' ? '对角终点' : '终点坐标'}</div>
-        <div className="panel-value-mono">({el.x2}, {el.y2})</div>
+        {onUpdateCoordinate ? (
+          <div style={{ display: 'flex', gap: 8 }}>
+            <div style={{ flex: 1 }}>
+              <div className="panel-label" style={{ fontSize: 10, marginBottom: 2 }}>X1</div>
+              <input
+                type="number"
+                className="panel-value-mono"
+                style={coordInputStyle}
+                value={el.x1}
+                onChange={e => onUpdateCoordinate(el.id, 'x1', e.target.value)}
+              />
+            </div>
+            <div style={{ flex: 1 }}>
+              <div className="panel-label" style={{ fontSize: 10, marginBottom: 2 }}>Y1</div>
+              <input
+                type="number"
+                className="panel-value-mono"
+                style={coordInputStyle}
+                value={el.y1}
+                onChange={e => onUpdateCoordinate(el.id, 'y1', e.target.value)}
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="panel-value-mono">({el.x1}, {el.y1})</div>
+        )}
+
+        <div className="panel-label" style={{ marginTop: 10, marginBottom: 6 }}>
+          {el.type === 'rect' ? '对角终点 (X2, Y2)' : '终点坐标 (X2, Y2)'}
+        </div>
+        {onUpdateCoordinate ? (
+          <div style={{ display: 'flex', gap: 8 }}>
+            <div style={{ flex: 1 }}>
+              <div className="panel-label" style={{ fontSize: 10, marginBottom: 2 }}>X2</div>
+              <input
+                type="number"
+                className="panel-value-mono"
+                style={coordInputStyle}
+                value={el.x2}
+                onChange={e => onUpdateCoordinate(el.id, 'x2', e.target.value)}
+              />
+            </div>
+            <div style={{ flex: 1 }}>
+              <div className="panel-label" style={{ fontSize: 10, marginBottom: 2 }}>Y2</div>
+              <input
+                type="number"
+                className="panel-value-mono"
+                style={coordInputStyle}
+                value={el.y2}
+                onChange={e => onUpdateCoordinate(el.id, 'y2', e.target.value)}
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="panel-value-mono">({el.x2}, {el.y2})</div>
+        )}
+        {onUpdateCoordinate && el.type === 'line' && (
+          <div style={{ fontSize: 10, color: '#555560', marginTop: 6, lineHeight: 1.4 }}>
+            修改坐标将自动重算线段长度
+          </div>
+        )}
       </div>
 
       {/* T03: Alignment tools */}
@@ -328,4 +387,18 @@ const alignBtnStyle = {
   fontSize: 11,
   fontWeight: 600,
   cursor: 'pointer',
+}
+
+// T13: shared style for coordinate input fields
+const coordInputStyle = {
+  background: '#111114',
+  border: '1px solid #2E2E38',
+  borderRadius: 6,
+  padding: '4px 8px',
+  width: '100%',
+  color: '#ECECEE',
+  fontSize: 12,
+  fontFamily: '"SF Mono","Menlo",monospace',
+  outline: 'none',
+  boxSizing: 'border-box',
 }
