@@ -1,5 +1,5 @@
 import { getProfile, getProfileName } from '../../lib/aluminum-profiles'
-import { Layers, Ruler, Box, MapPin, AlignCenterHorizontal, AlignCenterVertical, AlignHorizontalDistributeCenter, AlignVerticalDistributeCenter } from 'lucide-react'
+import { Layers, Ruler, Box, MapPin, AlignCenterHorizontal, AlignCenterVertical, AlignHorizontalDistributeCenter, AlignVerticalDistributeCenter, Lock, Unlock } from 'lucide-react'
 
 export default function PropertyPanel({ selectedElement, onUpdateElement, onAlign, isMobile = false }) {
   if (!selectedElement) {
@@ -16,6 +16,7 @@ export default function PropertyPanel({ selectedElement, onUpdateElement, onAlig
 
   const el = selectedElement
   const profile = getProfile(el.profileSpec)
+  const isLocked = !!el.locked
 
   return (
     <div className="panel-section" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -130,6 +131,37 @@ export default function PropertyPanel({ selectedElement, onUpdateElement, onAlig
               <span>垂直等距</span>
             </button>
           </div>
+        </div>
+      )}
+
+      {/* T04: Lock toggle */}
+      {onUpdateElement && (
+        <div style={{ borderTop: '1px solid #2E2E38', paddingTop: 10 }}>
+          <div className="panel-label" style={{ marginBottom: 8 }}>锁定状态</div>
+          <button
+            onClick={() => onUpdateElement(el.id, { locked: !isLocked })}
+            title={isLocked ? '解锁此图元 (L)' : '锁定此图元 (L) — 锁定后不可移动/删除'}
+            style={{
+              ...alignBtnStyle,
+              width: '100%',
+              gap: 8,
+              padding: '8px 12px',
+              background: isLocked ? '#3a3a1f' : '#1A1A1F',
+              color: isLocked ? '#FFD56B' : '#ECECEE',
+              border: isLocked ? '1px solid #5a5a28' : '1px solid #2E2E38',
+            }}
+          >
+            {isLocked ? <Lock size={14} /> : <Unlock size={14} />}
+            <span>{isLocked ? '已锁定（按 L 解锁）' : '未锁定（按 L 锁定）'}</span>
+          </button>
+          {isLocked && (
+            <div style={{
+              fontSize: 11, color: '#888892',
+              marginTop: 6, lineHeight: 1.4,
+            }}>
+              锁定后此图元不会被框选、移动或删除。需要先解锁才能编辑。
+            </div>
+          )}
         </div>
       )}
     </div>

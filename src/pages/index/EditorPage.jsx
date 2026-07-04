@@ -86,6 +86,12 @@ export default function EditorPage({ isMobile }) {
         // T02: Delete key removes selection (single or multi)
         e.preventDefault()
         handleDeleteSelected()
+      } else if ((e.key === 'l' || e.key === 'L') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        // T04: L key toggles lock on selected element
+        if (selectedId) {
+          e.preventDefault()
+          handleToggleLock()
+        }
       } else if (e.key === 'Escape') {
         // T02: ESC clears selection / cancels drawing
         setSelectedId(null)
@@ -94,7 +100,7 @@ export default function EditorPage({ isMobile }) {
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [handleCopy, handlePaste, handleDuplicate, handleDeleteSelected, selectedId, selectedIds])
+  }, [handleCopy, handlePaste, handleDuplicate, handleDeleteSelected, handleToggleLock, selectedId, selectedIds])
 
   const handleAddElement = useCallback((newElement, deleteId) => {
     if (deleteId) {
@@ -123,12 +129,34 @@ export default function EditorPage({ isMobile }) {
   const handleDeleteSelected = useCallback(() => {
     const ids = selectedIds.length > 1 ? selectedIds : (selectedId ? [selectedId] : [])
     if (ids.length === 0) return
+    // T04: Filter out locked elements — they cannot be deleted
+    const lockedIds = elements.filter(el => ids.includes(el.id) && el.locked).map(el => el.id)
+    const deletableIds = ids.filter(id => !lockedIds.includes(id))
+    if (deletableIds.length === 0) {
+      // All selected were locked — silently skip
+      return
+    }
     setHistory(h => [...h, [...elements]])
     setFuture([])
-    setElements(prev => prev.filter(el => !ids.includes(el.id)))
+    setElements(prev => prev.filter(el => !deletableIds.includes(el.id)))
     setSelectedId(null)
     setSelectedIds([])
   }, [selectedIds, selectedId, elements])
+
+  // T04: Update element (for lock toggle and future property edits)
+  const handleUpdateElement = useCallback((id, updates) => {
+    setHistory(h => [...h, [...elements]])
+    setFuture([])
+    setElements(prev => prev.map(el => el.id === id ? { ...el, ...updates } : el))
+  }, [elements])
+
+  // T04: Toggle lock state of currently selected element
+  const handleToggleLock = useCallback(() => {
+    if (!selectedId) return
+    const el = elements.find(x => x.id === selectedId)
+    if (!el) return
+    handleUpdateElement(selectedId, { locked: !el.locked })
+  }, [selectedId, elements, handleUpdateElement])
 
   // T03: Align selected element(s) to canvas center (single) or distribute (multi)
   const CANVAS_CENTER_X = 500
@@ -477,7 +505,7 @@ export default function EditorPage({ isMobile }) {
           </div>
           <PropertyPanel
             selectedElement={selectedElement}
-            onUpdateElement={() => {}}
+            onUpdateElement={handleUpdateElement}
             onAlign={handleAlign}
             isMobile={false}
           />
@@ -618,7 +646,7 @@ export default function EditorPage({ isMobile }) {
         {sheetTab === 'property' ? (
           <PropertyPanel
             selectedElement={selectedElement}
-            onUpdateElement={() => {}}
+            onUpdateElement={handleUpdateElement}
             onAlign={handleAlign}
             isMobile={true}
           />

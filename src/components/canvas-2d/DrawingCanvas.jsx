@@ -113,7 +113,9 @@ export default function DrawingCanvas({ elements, onAddElement, onSelectElement,
     const selectedSet = new Set(selectedIdsProp && selectedIdsProp.length ? selectedIdsProp : (selectedId ? [selectedId] : []))
     elements.forEach(el => {
       const isSelected = selectedSet.has(el.id)
-      ctx.strokeStyle = isSelected ? '#FFFFFF' : '#D0D0D8'
+      // T04: Locked elements use a muted tone
+      const baseStroke = el.locked ? '#9A9AA8' : '#D0D0D8'
+      ctx.strokeStyle = isSelected ? '#FFFFFF' : baseStroke
       ctx.lineWidth = isSelected ? 3 : 2
 
       if (el.type === 'line') {
@@ -175,15 +177,37 @@ export default function DrawingCanvas({ elements, onAddElement, onSelectElement,
         // Profile cross section on one side of the rect
         const profile = getProfile(el.profileSpec)
         if (profile) {
-          // Show cross section on top side of rectangle
-          const topMidX = rx + rw / 2
-          const topMidY = ry
           const sideLength = rw
           if (sideLength > 60) {
             const scale = Math.max(0.08, Math.min(0.22, Math.max(0.15, 30 / sideLength)))
             drawProfileCrossSection(ctx, rx, ry, rx + rw, ry, profile, isSelected, scale)
           }
         }
+      }
+
+      // T04: Lock icon for locked elements
+      if (el.locked) {
+        const midX = (el.x1 + el.x2) / 2
+        const midY = (el.y1 + el.y2) / 2
+        const iconX = midX + 14
+        const iconY = midY + 14
+        // Background pill
+        ctx.fillStyle = 'rgba(26,26,31,0.92)'
+        ctx.strokeStyle = '#888892'
+        ctx.lineWidth = 1
+        ctx.beginPath()
+        ctx.arc(iconX, iconY, 9, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.stroke()
+        // Lock body (rectangle)
+        ctx.fillStyle = '#ECECEE'
+        ctx.fillRect(iconX - 4, iconY - 1, 8, 6)
+        // Lock shackle (arc)
+        ctx.strokeStyle = '#ECECEE'
+        ctx.lineWidth = 1.4
+        ctx.beginPath()
+        ctx.arc(iconX, iconY - 1, 2.5, Math.PI, 0, false)
+        ctx.stroke()
       }
     })
   }, [elements, selectedId, selectedIdsProp, drawProfileCrossSection])
@@ -381,6 +405,8 @@ export default function DrawingCanvas({ elements, onAddElement, onSelectElement,
       let found = null
       let minDist = isMobile ? 20 : 12
       elements.forEach(el => {
+        // T04: Skip locked elements — cannot delete
+        if (el.locked) return
         if (el.type === 'line') {
           const dist = distToSegment(rawX, rawY, el.x1, el.y1, el.x2, el.y2)
           if (dist < minDist) {
@@ -443,6 +469,8 @@ export default function DrawingCanvas({ elements, onAddElement, onSelectElement,
     if (boxW > 4 && boxH > 4) {
       const selected = elements
         .filter(el => {
+          // T04: Skip locked elements from box selection
+          if (el.locked) return false
           const midX = (el.x1 + el.x2) / 2
           const midY = (el.y1 + el.y2) / 2
           return midX >= minX && midX <= maxX && midY >= minY && midY <= maxY
