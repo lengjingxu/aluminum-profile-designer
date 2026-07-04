@@ -5,7 +5,7 @@ import Viewer3D from '../../components/canvas-3d/Viewer3D'
 import PropertyPanel from '../../components/property-panel/PropertyPanel'
 import MaterialList from '../../components/material-list/MaterialList'
 import { ALUMINUM_PROFILES } from '../../lib/aluminum-profiles'
-import { TEMPLATES, TEMPLATE_IDS, getTemplate } from '../../lib/templates'
+import { TEMPLATES, TEMPLATE_IDS, getTemplate, resolveTemplate } from '../../lib/templates'
 import { saveDesign, generateId } from '../../utils/storage'
 import { Save, Trash2, Layers, ClipboardList, X, Eye, Pencil, LayoutTemplate, ArrowLeft, ClipboardCopy, ClipboardPaste, AlignCenterHorizontal, AlignCenterVertical } from 'lucide-react'
 
@@ -257,7 +257,8 @@ export default function EditorPage({ isMobile }) {
     if (isMobile) setSheetOpen(false)
   }, [elements, isMobile])
 
-  const handleLoadTemplate = useCallback((templateId) => {
+  // T09: Load template with optional params for parameterized templates
+  const handleLoadTemplate = useCallback((templateId, params = {}) => {
     const template = getTemplate(templateId)
     if (!template) return
 
@@ -265,8 +266,12 @@ export default function EditorPage({ isMobile }) {
     setHistory(h => [...h, [...elements]])
     setFuture([])
 
+    // Resolve template (handles parameterized templates via resolveTemplate)
+    const resolved = resolveTemplate(templateId, params) || template
+    const templateElements = resolved.elements || []
+
     // Load template elements with new IDs
-    const newElements = template.elements.map(el => ({
+    const newElements = templateElements.map(el => ({
       ...el,
       id: 'el-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6),
     }))
@@ -284,6 +289,32 @@ export default function EditorPage({ isMobile }) {
     currentTool === 'rect' ? '点击画布绘制矩形起点，再次点击完成矩形' : ''
 
   // ===== TEMPLATE MODAL =====
+  // T09: Per-template parameter UI
+  const [templateParams, setTemplateParams] = useState({})
+
+  const handleSetParam = (templateId, paramKey, value) => {
+    setTemplateParams(prev => ({
+      ...prev,
+      [templateId]: {
+        ...(prev[templateId] || {}),
+        [paramKey]: value,
+      },
+    }))
+  }
+
+  const handleApplyTemplate = (templateId, tpl) => {
+    const stored = templateParams[templateId]
+    // Build params object using stored values or defaults
+    const paramConfig = tpl.params || {}
+    const params = {}
+    for (const key of Object.keys(paramConfig)) {
+      params[key] = stored && stored[key] !== undefined && stored[key] !== ''
+        ? Number(stored[key])
+        : paramConfig[key].default
+    }
+    handleLoadTemplate(templateId, params)
+  }
+
   const TemplateModal = () => (
     <>
       {/* Backdrop */}
@@ -305,9 +336,9 @@ export default function EditorPage({ isMobile }) {
           border: '1px solid #2E2E38',
           borderRadius: 14,
           padding: 20,
-          maxWidth: 400,
-          width: '90%',
-          maxHeight: '80dvh',
+          maxWidth: 440,
+          width: '92%',
+          maxHeight: '85dvh',
           overflowY: 'auto',
           zIndex: 201,
         }}
@@ -325,8 +356,11 @@ export default function EditorPage({ isMobile }) {
             <X size={20} />
           </button>
         </div>
+
         {TEMPLATE_IDS.map(id => {
           const t = TEMPLATES[id]
+          const hasParams = !!t.params
+          const paramEntries = hasParams ? Object.entries(t.params) : []
           return (
             <div
               key={id}
@@ -335,10 +369,8 @@ export default function EditorPage({ isMobile }) {
                 borderRadius: 10,
                 padding: 14,
                 marginBottom: 10,
-                cursor: 'pointer',
                 transition: 'border-color 0.2s',
               }}
-              onClick={() => handleLoadTemplate(id)}
               onMouseEnter={e => e.currentTarget.style.borderColor = '#ECECEE'}
               onMouseLeave={e => e.currentTarget.style.borderColor = '#2E2E38'}
             >
@@ -349,8 +381,90 @@ export default function EditorPage({ isMobile }) {
                 {t.description}
               </div>
               <div style={{ fontSize: 11, color: '#555560', marginTop: 6 }}>
-                型材: {t.profile} · 图元: {t.elements.length}个
+                型材: {t.profile}
               </div>
+
+              {/* T09: Param inputs for parameterized templates */}
+              {hasParams && (
+                <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {paramEntries.map(([key, cfg]) => {
+                    const stored = templateParams[id]?.[key]
+                    const value = stored !== undefined && stored !== ''
+                      ? stored
+                      : String(cfg.default)
+                    return (
+                      <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <label style={{
+                          flex: 1, fontSize: 12, color: '#888892',
+                          fontFamily: '"SF Mono","Menlo",monospace',
+                        }}>
+                          {cfg.label}
+                        </label>
+                        <button
+                          onClick={() => {
+                            const cur = Number(value)
+                            const next = Math.max(cfg.min, cur - cfg.step)
+                            handleSetParam(id, key, String(next))
+                          }}
+                          style={{
+                            background: '#111114', color: '#ECECEE',
+                            border: '1px solid #2E2E38',
+                            borderRadius: 6, padding: '4px 10px',
+                            cursor: 'pointer', fontSize: 14,
+                          }}
+                        >−</button>
+                        <input
+                          type="number"
+                          value={value}
+                          min={cfg.min}
+                          max={cfg.max}
+                          step={cfg.step}
+                          onChange={e => handleSetParam(id, key, e.target.value)}
+                          style={{
+                            width: 80,
+                            background: '#111114',
+                            color: '#ECECEE',
+                            border: '1px solid #2E2E38',
+                            borderRadius: 6,
+                            padding: '6px 8px',
+                            fontSize: 13,
+                            fontFamily: '"SF Mono","Menlo",monospace',
+                            textAlign: 'center',
+                          }}
+                        />
+                        <button
+                          onClick={() => {
+                            const cur = Number(value)
+                            const next = Math.min(cfg.max, cur + cfg.step)
+                            handleSetParam(id, key, String(next))
+                          }}
+                          style={{
+                            background: '#111114', color: '#ECECEE',
+                            border: '1px solid #2E2E38',
+                            borderRadius: 6, padding: '4px 10px',
+                            cursor: 'pointer', fontSize: 14,
+                          }}
+                        >+</button>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              <button
+                onClick={() => hasParams ? handleApplyTemplate(id, t) : handleLoadTemplate(id)}
+                style={{
+                  marginTop: 12,
+                  width: '100%',
+                  background: '#ECECEE', color: '#0C0C0F',
+                  border: 'none', borderRadius: 8,
+                  padding: '10px 12px',
+                  fontSize: 13, fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                {hasParams ? '应用模板' : '加载模板'}
+              </button>
             </div>
           )
         })}
