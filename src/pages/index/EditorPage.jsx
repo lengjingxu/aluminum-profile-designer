@@ -7,7 +7,7 @@ import MaterialList from '../../components/material-list/MaterialList'
 import { ALUMINUM_PROFILES } from '../../lib/aluminum-profiles'
 import { TEMPLATES, TEMPLATE_IDS, getTemplate, resolveTemplate } from '../../lib/templates'
 import { saveDesign, generateId } from '../../utils/storage'
-import { Save, Trash2, Layers, ClipboardList, X, Eye, Pencil, LayoutTemplate, ArrowLeft, ClipboardCopy, ClipboardPaste, AlignCenterHorizontal, AlignCenterVertical } from 'lucide-react'
+import { Save, Trash2, Layers, ClipboardList, X, Eye, Pencil, LayoutTemplate, ArrowLeft, ClipboardCopy, ClipboardPaste, AlignCenterHorizontal, AlignCenterVertical, Grid3x3 } from 'lucide-react'
 
 export default function EditorPage({ isMobile }) {
   const [elements, setElements] = useState([])
@@ -23,6 +23,8 @@ export default function EditorPage({ isMobile }) {
   const [mode, setMode] = useState('draw') // 'draw' | 'view'
   const [showTemplateModal, setShowTemplateModal] = useState(false)
   const [clipboard, setClipboard] = useState([]) // T01: clipboard for copy/paste
+  // T12: Grid size in pixels (10/20/50)
+  const [gridSize, setGridSize] = useState(10)
 
   // T01: Copy selected element to clipboard
   const handleCopy = useCallback(() => {
@@ -573,6 +575,7 @@ export default function EditorPage({ isMobile }) {
                 selectedIds={selectedIds}
                 currentTool={currentTool}
                 currentProfile={currentProfile}
+                gridSize={gridSize}
                 isMobile={false}
               />
             ) : (
@@ -584,7 +587,36 @@ export default function EditorPage({ isMobile }) {
           </div>
 
           <div className="status-bar">
-            {toolHint}
+            <span style={{ flex: 1 }}>{toolHint}</span>
+            {/* T12: Grid size selector */}
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              fontSize: 12, color: '#888892',
+            }}>
+              <Grid3x3 size={13} style={{ color: '#888892' }} />
+              <span style={{ fontFamily: '"SF Mono","Menlo",monospace' }}>网格</span>
+              {[10, 20, 50].map(size => (
+                <button
+                  key={size}
+                  onClick={() => setGridSize(size)}
+                  style={{
+                    background: gridSize === size ? '#ECECEE' : 'transparent',
+                    color: gridSize === size ? '#0C0C0F' : '#888892',
+                    border: '1px solid #2E2E38',
+                    borderRadius: 4,
+                    padding: '2px 8px',
+                    fontSize: 11,
+                    fontFamily: '"SF Mono","Menlo",monospace',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    minWidth: 32,
+                  }}
+                  title={`网格 ${size}px`}
+                >
+                  {size}
+                </button>
+              ))}
+            </span>
           </div>
         </div>
 
@@ -691,6 +723,7 @@ export default function EditorPage({ isMobile }) {
             selectedIds={selectedIds}
             currentTool={currentTool}
             currentProfile={currentProfile}
+            gridSize={gridSize}
             isMobile={true}
           />
         ) : (

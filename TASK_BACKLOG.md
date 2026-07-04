@@ -1,6 +1,6 @@
 # 铝型材设计器 · 优化任务清单
 
-> 最后更新：2026-07-01
+> 最后更新：2026-07-04
 > 状态：pending = 待处理, in_progress = 执行中, done = 已完成
 
 ---
@@ -61,7 +61,7 @@ Ctrl+Z撤销、Ctrl+Y重做、Delete删除、Escape取消绘制、Space空格
 文件：src/components/canvas-2d/DrawingCanvas.jsx
 
 ## T12 - 画布网格间距可调
-**状态：pending**
+|**状态：done**
 底部状态栏显示"网格: 10px [10/20/50]"点击切换
 文件：src/components/canvas-2d/DrawingCanvas.jsx, src/pages/index/EditorPage.jsx
 
