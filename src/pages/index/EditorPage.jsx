@@ -73,7 +73,14 @@ export default function EditorPage({ isMobile }) {
       const tag = e.target?.tagName
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
 
-      if (e.ctrlKey && (e.key === 'c' || e.key === 'C')) {
+      // T11: Ctrl+Z undo / Ctrl+Y (or Ctrl+Shift+Z) redo
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z') && !e.shiftKey) {
+        e.preventDefault()
+        handleUndo()
+      } else if ((e.ctrlKey || e.metaKey) && ((e.key === 'y' || e.key === 'Y') || ((e.key === 'z' || e.key === 'Z') && e.shiftKey))) {
+        e.preventDefault()
+        handleRedo()
+      } else if (e.ctrlKey && (e.key === 'c' || e.key === 'C')) {
         e.preventDefault()
         handleCopy()
       } else if (e.ctrlKey && (e.key === 'v' || e.key === 'V')) {
@@ -100,7 +107,7 @@ export default function EditorPage({ isMobile }) {
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [handleCopy, handlePaste, handleDuplicate, handleDeleteSelected, handleToggleLock, selectedId, selectedIds])
+  }, [handleCopy, handlePaste, handleDuplicate, handleDeleteSelected, handleToggleLock, handleUndo, handleRedo, selectedId, selectedIds])
 
   const handleAddElement = useCallback((newElement, deleteId) => {
     if (deleteId) {
