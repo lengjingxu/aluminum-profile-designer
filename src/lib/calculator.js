@@ -92,11 +92,20 @@ export function calculateAccessories(elements) {
     return sum + Math.ceil(lengthMm / 300)
   }, 0)
 
+  // 端面连接件：所有线段的端点总数 ÷ 2（每个连接件对接 2 根型材的端面）
+  const lineEndpoints = elements.reduce((sum, el) => {
+    if (el.type === 'line') return sum + 2
+    return sum
+  }, 0)
+  const endConnectorCount = Math.floor(lineEndpoints / 2)
+
   result.angleBracket = { count: angleBracketCount, ...ACCESSORY_TYPES.angleBracket }
   result.tConnector = { count: tConnectorCount, ...ACCESSORY_TYPES.tConnector }
   result.screw = { count: screwCount, ...ACCESSORY_TYPES.screw }
   result.endCap = { count: endCapCount, ...ACCESSORY_TYPES.endCap }
   result.foot = { count: footCount, ...ACCESSORY_TYPES.foot }
+  result.panelClamp = { count: 0, ...ACCESSORY_TYPES.panelClamp }
+  result.endConnector = { count: endConnectorCount, ...ACCESSORY_TYPES.endConnector }
   result.springClip = { count: springClipCount, ...ACCESSORY_TYPES.springClip }
 
   return result

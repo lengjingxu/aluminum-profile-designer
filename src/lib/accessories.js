@@ -43,6 +43,13 @@ export const ACCESSORY_TYPES = {
     pricePerUnit: 2,
     unit: '个',
   },
+  endConnector: {
+    id: 'endConnector',
+    name: '端面连接件',
+    description: '型材对接连接器（两段型材端面对接）',
+    pricePerUnit: 3,
+    unit: '个',
+  },
   springClip: {
     id: 'springClip',
     name: '弹性扣',
