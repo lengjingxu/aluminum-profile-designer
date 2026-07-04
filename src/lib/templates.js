@@ -121,6 +121,36 @@ export const TEMPLATES = {
       { type: 'rect', x1: 50, y1: 550, x2: 650, y2: 850, profileSpec: '8080' },
     ],
   },
+
+  // T18: 120cm 升降工作台 - 带横档加固
+  'table-desk-120': {
+    id: 'table-desk-120',
+    name: '120cm 升降工作台',
+    profile: '4040',
+    description: '带横档加固的1.2m工作台',
+    elements: [
+      { type: 'rect', x1: 50, y1: 50, x2: 650, y2: 350, profileSpec: '4040' },
+      { type: 'line', x1: 50, y1: 350, x2: 50, y2: 850, length: 500, profileSpec: '4040' },
+      { type: 'line', x1: 650, y1: 350, x2: 650, y2: 850, length: 500, profileSpec: '4040' },
+      { type: 'line', x1: 50, y1: 650, x2: 650, y2: 650, length: 600, profileSpec: '4040' },
+    ],
+  },
+
+  // T18: 仪器设备架 6060 重型
+  'instrument-shelf': {
+    id: 'instrument-shelf',
+    name: '仪器设备架 6060',
+    profile: '6060',
+    description: '重型6060规格，适合精密仪器承托',
+    elements: [
+      { type: 'line', x1: 50, y1: 100, x2: 50, y2: 1100, length: 1000, profileSpec: '6060' },
+      { type: 'line', x1: 550, y1: 100, x2: 550, y2: 1100, length: 1000, profileSpec: '6060' },
+      { type: 'line', x1: 50, y1: 100, x2: 550, y2: 100, length: 500, profileSpec: '6060' },
+      { type: 'line', x1: 50, y1: 400, x2: 550, y2: 400, length: 500, profileSpec: '6060' },
+      { type: 'line', x1: 50, y1: 700, x2: 550, y2: 700, length: 500, profileSpec: '6060' },
+      { type: 'line', x1: 50, y1: 1100, x2: 550, y2: 1100, length: 500, profileSpec: '6060' },
+    ],
+  },
   'empty': {
     id: 'empty',
     name: '空白画布',
