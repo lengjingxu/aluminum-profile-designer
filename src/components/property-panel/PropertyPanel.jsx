@@ -1,7 +1,7 @@
 import { getProfile, getProfileName } from '../../lib/aluminum-profiles'
-import { Layers, Ruler, Box, MapPin } from 'lucide-react'
+import { Layers, Ruler, Box, MapPin, AlignCenterHorizontal, AlignCenterVertical, AlignHorizontalDistributeCenter, AlignVerticalDistributeCenter } from 'lucide-react'
 
-export default function PropertyPanel({ selectedElement, onUpdateElement, isMobile = false }) {
+export default function PropertyPanel({ selectedElement, onUpdateElement, onAlign, isMobile = false }) {
   if (!selectedElement) {
     return (
       <div className="panel-section" style={{ textAlign: 'center' }}>
@@ -91,6 +91,62 @@ export default function PropertyPanel({ selectedElement, onUpdateElement, isMobi
         <div className="panel-label" style={{ marginTop: 6 }}>{el.type === 'rect' ? '对角终点' : '终点坐标'}</div>
         <div className="panel-value-mono">({el.x2}, {el.y2})</div>
       </div>
+
+      {/* T03: Alignment tools */}
+      {onAlign && (
+        <div style={{ borderTop: '1px solid #2E2E38', paddingTop: 10 }}>
+          <div className="panel-label" style={{ marginBottom: 8 }}>对齐工具</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+            <button
+              onClick={() => onAlign('centerH')}
+              title="垂直居中（画布中心 Y）"
+              style={alignBtnStyle}
+            >
+              <AlignCenterHorizontal size={14} />
+              <span>垂直居中</span>
+            </button>
+            <button
+              onClick={() => onAlign('centerV')}
+              title="水平居中（画布中心 X）"
+              style={alignBtnStyle}
+            >
+              <AlignCenterVertical size={14} />
+              <span>水平居中</span>
+            </button>
+            <button
+              onClick={() => onAlign('distributeH')}
+              title="水平等距分布（≥3 个）"
+              style={alignBtnStyle}
+            >
+              <AlignHorizontalDistributeCenter size={14} />
+              <span>水平等距</span>
+            </button>
+            <button
+              onClick={() => onAlign('distributeV')}
+              title="垂直等距分布（≥3 个）"
+              style={alignBtnStyle}
+            >
+              <AlignVerticalDistributeCenter size={14} />
+              <span>垂直等距</span>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
+}
+
+const alignBtnStyle = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 4,
+  background: '#1A1A1F',
+  color: '#ECECEE',
+  border: '1px solid #2E2E38',
+  borderRadius: 6,
+  padding: '6px 8px',
+  fontSize: 11,
+  fontWeight: 600,
+  cursor: 'pointer',
 }

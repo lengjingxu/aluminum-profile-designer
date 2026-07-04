@@ -16,7 +16,7 @@
 文件：src/components/canvas-2d/DrawingCanvas.jsx, src/pages/index/EditorPage.jsx
 
 ## T03 - 对齐工具
-**状态：pending**
+**状态：done**
 水平居中、垂直居中、等距分布（基于选中多个图元）
 文件：src/components/canvas-2d/DrawingCanvas.jsx, src/pages/index/EditorPage.jsx
 

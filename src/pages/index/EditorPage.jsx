@@ -7,7 +7,7 @@ import MaterialList from '../../components/material-list/MaterialList'
 import { ALUMINUM_PROFILES } from '../../lib/aluminum-profiles'
 import { TEMPLATES, TEMPLATE_IDS, getTemplate } from '../../lib/templates'
 import { saveDesign, generateId } from '../../utils/storage'
-import { Save, Trash2, Layers, ClipboardList, X, Eye, Pencil, LayoutTemplate, ArrowLeft, ClipboardCopy, ClipboardPaste } from 'lucide-react'
+import { Save, Trash2, Layers, ClipboardList, X, Eye, Pencil, LayoutTemplate, ArrowLeft, ClipboardCopy, ClipboardPaste, AlignCenterHorizontal, AlignCenterVertical } from 'lucide-react'
 
 export default function EditorPage({ isMobile }) {
   const [elements, setElements] = useState([])
@@ -129,6 +129,67 @@ export default function EditorPage({ isMobile }) {
     setSelectedId(null)
     setSelectedIds([])
   }, [selectedIds, selectedId, elements])
+
+  // T03: Align selected element(s) to canvas center (single) or distribute (multi)
+  const CANVAS_CENTER_X = 500
+  const CANVAS_CENTER_Y = 400
+  const handleAlign = useCallback((type) => {
+    const targetIds = selectedIds.length > 1 ? selectedIds : (selectedId ? [selectedId] : [])
+    if (targetIds.length === 0) return
+    setHistory(h => [...h, [...elements]])
+    setFuture([])
+    setElements(prev => prev.map(x => {
+      if (!targetIds.includes(x.id)) return x
+      if (type === 'centerH') {
+        // Vertical center: align midpoint Y to CANVAS_CENTER_Y
+        const midY = (x.y1 + x.y2) / 2
+        const d = CANVAS_CENTER_Y - midY
+        return { ...x, y1: x.y1 + d, y2: x.y2 + d }
+      }
+      if (type === 'centerV') {
+        // Horizontal center: align midpoint X to CANVAS_CENTER_X
+        const midX = (x.x1 + x.x2) / 2
+        const d = CANVAS_CENTER_X - midX
+        return { ...x, x1: x.x1 + d, x2: x.x2 + d }
+      }
+      if (type === 'distributeH') {
+        // Equal horizontal spacing across selection (≥3 elements)
+        if (targetIds.length < 3) return x
+        const sorted = [...targetIds]
+          .map(id => prev.find(p => p.id === id))
+          .filter(Boolean)
+          .sort((a, b) => ((a.x1 + a.x2) / 2) - ((b.x1 + b.x2) / 2))
+        const first = sorted[0], last = sorted[sorted.length - 1]
+        const firstMid = (first.x1 + first.x2) / 2
+        const lastMid = (last.x1 + last.x2) / 2
+        const step = (lastMid - firstMid) / (sorted.length - 1)
+        const idx = sorted.findIndex(s => s.id === x.id)
+        if (idx <= 0 || idx >= sorted.length - 1) return x
+        const targetMid = firstMid + step * idx
+        const curMid = (x.x1 + x.x2) / 2
+        const d = targetMid - curMid
+        return { ...x, x1: x.x1 + d, x2: x.x2 + d }
+      }
+      if (type === 'distributeV') {
+        if (targetIds.length < 3) return x
+        const sorted = [...targetIds]
+          .map(id => prev.find(p => p.id === id))
+          .filter(Boolean)
+          .sort((a, b) => ((a.y1 + a.y2) / 2) - ((b.y1 + b.y2) / 2))
+        const first = sorted[0], last = sorted[sorted.length - 1]
+        const firstMid = (first.y1 + first.y2) / 2
+        const lastMid = (last.y1 + last.y2) / 2
+        const step = (lastMid - firstMid) / (sorted.length - 1)
+        const idx = sorted.findIndex(s => s.id === x.id)
+        if (idx <= 0 || idx >= sorted.length - 1) return x
+        const targetMid = firstMid + step * idx
+        const curMid = (x.y1 + x.y2) / 2
+        const d = targetMid - curMid
+        return { ...x, y1: x.y1 + d, y2: x.y2 + d }
+      }
+      return x
+    }))
+  }, [selectedId, selectedIds, elements])
 
   const handleUndo = useCallback(() => {
     if (history.length === 0) return
@@ -417,6 +478,7 @@ export default function EditorPage({ isMobile }) {
           <PropertyPanel
             selectedElement={selectedElement}
             onUpdateElement={() => {}}
+            onAlign={handleAlign}
             isMobile={false}
           />
           <div style={{ borderTop: '1px solid #2E2E38' }}>
@@ -557,6 +619,7 @@ export default function EditorPage({ isMobile }) {
           <PropertyPanel
             selectedElement={selectedElement}
             onUpdateElement={() => {}}
+            onAlign={handleAlign}
             isMobile={true}
           />
         ) : (
