@@ -428,7 +428,7 @@ export default function DrawingCanvas({ elements, onAddElement, onSelectElement,
   }, [drawing, currentTool, getCoords])
 
   // T02: handlePointerUp - finalize box selection
-  const handlePointerUp = useCallback((e) => {
+  const handlePointerUp = useCallback(() => {
     if (!drawing) return
     if (drawing.type !== 'selection') return
 
