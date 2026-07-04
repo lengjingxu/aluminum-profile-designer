@@ -2,6 +2,48 @@
 
 const STORAGE_KEY = 'aluminum-designer'
 const DESIGN_LIST_KEY = 'aluminum-designer-list'
+const DRAFT_KEY = 'aluminum-draft' // T15: 自动保存草稿
+
+// T15: 保存当前草稿（自动保存）
+export function saveDraft(elements, currentProfile) {
+  try {
+    if (!elements || elements.length === 0) {
+      localStorage.removeItem(DRAFT_KEY)
+      return null
+    }
+    const draft = {
+      elements,
+      currentProfile,
+      updatedAt: Date.now(),
+    }
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(draft))
+    return draft.updatedAt
+  } catch (e) {
+    console.error('草稿保存失败:', e)
+    return null
+  }
+}
+
+// T15: 读取草稿
+export function loadDraft() {
+  try {
+    const data = localStorage.getItem(DRAFT_KEY)
+    return data ? JSON.parse(data) : null
+  } catch (e) {
+    console.error('草稿读取失败:', e)
+    return null
+  }
+}
+
+// T15: 清除草稿
+export function clearDraft() {
+  try {
+    localStorage.removeItem(DRAFT_KEY)
+    return true
+  } catch (e) {
+    return false
+  }
+}
 
 // 保存当前设计方案
 export function saveDesign(designData) {

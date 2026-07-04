@@ -6,8 +6,8 @@ import PropertyPanel from '../../components/property-panel/PropertyPanel'
 import MaterialList from '../../components/material-list/MaterialList'
 import { ALUMINUM_PROFILES } from '../../lib/aluminum-profiles'
 import { TEMPLATES, TEMPLATE_IDS, getTemplate, resolveTemplate } from '../../lib/templates'
-import { saveDesign, generateId } from '../../utils/storage'
-import { Save, Trash2, Layers, ClipboardList, X, Eye, Pencil, LayoutTemplate, ArrowLeft, ClipboardCopy, ClipboardPaste, AlignCenterHorizontal, AlignCenterVertical, Grid3x3 } from 'lucide-react'
+import { saveDesign, generateId, saveDraft, loadDraft, clearDraft } from '../../utils/storage'
+import { Save, Trash2, Layers, ClipboardList, X, Eye, Pencil, LayoutTemplate, ArrowLeft, ClipboardCopy, ClipboardPaste, AlignCenterHorizontal, AlignCenterVertical, Grid3x3, CloudCheck, CloudOff } from 'lucide-react'
 
 export default function EditorPage({ isMobile }) {
   const [elements, setElements] = useState([])
@@ -25,6 +25,9 @@ export default function EditorPage({ isMobile }) {
   const [clipboard, setClipboard] = useState([]) // T01: clipboard for copy/paste
   // T12: Grid size in pixels (10/20/50)
   const [gridSize, setGridSize] = useState(10)
+  // T15: Auto-save draft state
+  const [lastSavedAt, setLastSavedAt] = useState(null)
+  const [draftRestored, setDraftRestored] = useState(false)
 
   // T01: Copy selected element to clipboard
   const handleCopy = useCallback(() => {
@@ -110,6 +113,45 @@ export default function EditorPage({ isMobile }) {
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [handleCopy, handlePaste, handleDuplicate, handleDeleteSelected, handleToggleLock, handleUndo, handleRedo, selectedId, selectedIds])
+
+  // T15: Auto-save draft to localStorage every 60 seconds
+  useEffect(() => {
+    if (draftRestored) return // wait until restoration attempt completes
+    const interval = setInterval(() => {
+      if (elements.length > 0) {
+        const ts = saveDraft(elements, currentProfile)
+        if (ts) setLastSavedAt(ts)
+      } else {
+        clearDraft()
+        setLastSavedAt(null)
+      }
+    }, 60000)
+    return () => clearInterval(interval)
+  }, [elements, currentProfile, draftRestored])
+
+  // T15: Restore draft on mount if no elements loaded
+  useEffect(() => {
+    const draft = loadDraft()
+    if (draft && draft.elements && draft.elements.length > 0) {
+      const ts = draft.updatedAt || Date.now()
+      const confirmMsg = `检测到草稿（${new Date(ts).toLocaleString()}，${draft.elements.length} 个图元），是否恢复？`
+      let restore = false
+      try {
+        restore = window.confirm(confirmMsg)
+      } catch {
+        restore = false
+      }
+      if (restore) {
+        setElements(draft.elements)
+        if (draft.currentProfile) setCurrentProfile(draft.currentProfile)
+        setLastSavedAt(ts)
+      } else {
+        // User declined — drop the stale draft so it doesn't keep prompting
+        clearDraft()
+      }
+    }
+    setDraftRestored(true)
+  }, [])
 
   const handleAddElement = useCallback((newElement, deleteId) => {
     if (deleteId) {
@@ -282,6 +324,9 @@ export default function EditorPage({ isMobile }) {
     setElements([])
     setSelectedId(null)
     setSelectedIds([])
+    // T15: clearing elements also wipes the auto-saved draft
+    clearDraft()
+    setLastSavedAt(null)
     if (isMobile) setSheetOpen(false)
   }, [elements, isMobile])
 
@@ -315,6 +360,16 @@ export default function EditorPage({ isMobile }) {
     currentTool === 'select' ? '点击线段选中查看属性' :
     currentTool === 'delete' ? '点击线段删除' :
     currentTool === 'rect' ? '点击画布绘制矩形起点，再次点击完成矩形' : ''
+
+  // T15: Human-readable "X 秒/分钟/小时前" relative time formatter
+  const formatDraftTime = (ts) => {
+    if (!ts) return ''
+    const diff = Date.now() - ts
+    if (diff < 5000) return '刚刚'
+    if (diff < 60_000) return `${Math.floor(diff / 1000)} 秒前`
+    if (diff < 3600_000) return `${Math.floor(diff / 60_000)} 分钟前`
+    return new Date(ts).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+  }
 
   // ===== TEMPLATE MODAL =====
   // T09: Per-template parameter UI
@@ -607,6 +662,27 @@ export default function EditorPage({ isMobile }) {
 
           <div className="status-bar">
             <span style={{ flex: 1 }}>{toolHint}</span>
+            {/* T15: Auto-save status */}
+            {lastSavedAt && (
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+                fontSize: 12, color: '#888892',
+              }} title="草稿已自动保存到本地">
+                <CloudCheck size={13} style={{ color: '#4ADE80' }} />
+                <span style={{ fontFamily: '"SF Mono","Menlo",monospace' }}>
+                  已自动保存 {formatDraftTime(lastSavedAt)}
+                </span>
+              </span>
+            )}
+            {!lastSavedAt && elements.length > 0 && (
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+                fontSize: 12, color: '#888892',
+              }} title="等待下次自动保存">
+                <CloudOff size={13} style={{ color: '#888892' }} />
+                <span style={{ fontFamily: '"SF Mono","Menlo",monospace' }}>未自动保存</span>
+              </span>
+            )}
             {/* T12: Grid size selector */}
             <span style={{
               display: 'inline-flex', alignItems: 'center', gap: 6,
@@ -753,13 +829,35 @@ export default function EditorPage({ isMobile }) {
           />
         )}
         <div style={{
-          position: 'absolute', bottom: 8, left: 8,
-          fontSize: 12, color: '#888892',
-          background: 'rgba(26,26,31,0.85)',
-          padding: '4px 8px',
-          borderRadius: 6,
+          position: 'absolute', bottom: 8, left: 8, right: 8,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          gap: 8,
+          pointerEvents: 'none',
         }}>
-          {toolHint}
+          <div style={{
+            fontSize: 12, color: '#888892',
+            background: 'rgba(26,26,31,0.85)',
+            padding: '4px 8px',
+            borderRadius: 6,
+          }}>
+            {toolHint}
+          </div>
+          {/* T15: Auto-save status (mobile) */}
+          {lastSavedAt && (
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              fontSize: 11, color: '#888892',
+              background: 'rgba(26,26,31,0.85)',
+              padding: '4px 8px',
+              borderRadius: 6,
+              pointerEvents: 'auto',
+            }} title="草稿已自动保存到本地">
+              <CloudCheck size={12} style={{ color: '#4ADE80' }} />
+              <span style={{ fontFamily: '"SF Mono","Menlo",monospace' }}>
+                {formatDraftTime(lastSavedAt)}
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
