@@ -1,11 +1,26 @@
 import { generateMaterialList } from '../../lib/calculator'
 import { exportToCSV } from '../../lib/exporter'
-import { ClipboardList, Download, BarChart3, Package, Wrench } from 'lucide-react'
+import { ClipboardList, Download, BarChart3, Package, Wrench, Sparkles } from 'lucide-react'
 
 export default function MaterialList({ elements, isMobile = false }) {
   const materialData = generateMaterialList(elements)
   const { profiles, accessories, cost } = materialData
   const hasProfiles = Object.keys(profiles).length > 0
+
+  // T07 推荐配件数据
+  const recommendedBoltSets = accessories.recommendedBoltSets || {}
+  const recommendedAngleBrackets = accessories.recommendedAngleBrackets || {}
+  const recommendedSpringClips = accessories.recommendedSpringClips || {}
+  const hasRecommended =
+    Object.keys(recommendedBoltSets).length > 0 ||
+    Object.keys(recommendedAngleBrackets).length > 0 ||
+    Object.keys(recommendedSpringClips).length > 0
+
+  const recommendedItems = [
+    ...Object.values(recommendedBoltSets),
+    ...Object.values(recommendedAngleBrackets),
+    ...Object.values(recommendedSpringClips),
+  ]
 
   if (isMobile) {
     return (
@@ -74,7 +89,39 @@ export default function MaterialList({ elements, isMobile = false }) {
           )}
         </div>
 
-        {/* Cost summary */}
+        {/* T07 Recommended accessories (Mobile) */}
+          {hasRecommended && (
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+                <Sparkles size={14} style={{ color: '#888892' }} />
+                <span className="panel-section-title">推荐配件（按规格）</span>
+              </div>
+              {recommendedItems.map(item => (
+                <div className="material-card" key={item.id}>
+                  <div className="material-card-header">
+                    <span className="material-card-title">{item.name}</span>
+                    <span className="material-card-cost">{(item.count * item.pricePerUnit).toFixed(1)} 元</span>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+                    <div>
+                      <span className="panel-label">规格</span>
+                      <span className="material-card-stat">{item.specId}</span>
+                    </div>
+                    <div>
+                      <span className="panel-label">数量</span>
+                      <span className="material-card-stat">{item.count} {item.unit}</span>
+                    </div>
+                    <div>
+                      <span className="panel-label">单价</span>
+                      <span className="material-card-stat">{item.pricePerUnit} 元</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Cost summary */}
         {hasProfiles && (
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
@@ -183,6 +230,40 @@ export default function MaterialList({ elements, isMobile = false }) {
           <div style={{ color: '#888892', fontSize: 12 }}>暂无配件数据</div>
         )}
       </div>
+
+      {/* T07 Recommended accessories (Desktop) */}
+      {hasRecommended && (
+        <div>
+          <div className="panel-section-title" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Sparkles size={12} style={{ color: '#888892' }} />
+            <span>推荐配件（按规格推荐）</span>
+          </div>
+          <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ color: '#888892', borderBottom: '1px solid #2E2E38' }}>
+                <th style={{ padding: 6, textAlign: 'left' }}>名称</th>
+                <th style={{ padding: 6, textAlign: 'left' }}>规格</th>
+                <th style={{ padding: 6, textAlign: 'right' }}>数量</th>
+                <th style={{ padding: 6, textAlign: 'right' }}>单价</th>
+                <th style={{ padding: 6, textAlign: 'right' }}>总价</th>
+              </tr>
+            </thead>
+            <tbody>
+              {recommendedItems.map(item => (
+                <tr key={item.id} style={{ borderBottom: '1px solid rgba(46,46,56,0.3)' }}>
+                  <td style={{ padding: 6, color: '#ECECEE' }}>{item.name}</td>
+                  <td style={{ padding: 6, color: '#888892' }}>{item.specId}</td>
+                  <td style={{ padding: 6, textAlign: 'right', color: '#ECECEE' }}>{item.count} {item.unit}</td>
+                  <td style={{ padding: 6, textAlign: 'right', color: '#ECECEE' }}>{item.pricePerUnit}元</td>
+                  <td style={{ padding: 6, textAlign: 'right', color: '#ECECEE', fontFamily: '"SF Mono", "Menlo", monospace' }}>
+                    {(item.count * item.pricePerUnit).toFixed(1)}元
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {/* Cost summary */}
       {hasProfiles && (

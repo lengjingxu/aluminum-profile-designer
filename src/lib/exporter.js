@@ -35,12 +35,33 @@ export function exportToCSV(materialList) {
   rows.push(['=== 配件清单 ==='])
   rows.push(['类型', '名称', '数量', '单价(元)', '总价(元)'])
   Object.values(materialList.accessories).forEach(acc => {
+    // T07 跳过非配件条目（推荐的按规格分组数据是对象，不是单个配件）
+    if (typeof acc.count !== 'number') return
     rows.push([
       acc.id, acc.name, acc.count,
       acc.pricePerUnit.toFixed(2),
       (acc.count * acc.pricePerUnit).toFixed(2),
     ])
   })
+
+  // T07 推荐配件清单（按规格）
+  const recommendedItems = [
+    ...Object.values(materialList.accessories.recommendedBoltSets || {}),
+    ...Object.values(materialList.accessories.recommendedAngleBrackets || {}),
+    ...Object.values(materialList.accessories.recommendedSpringClips || {}),
+  ]
+  if (recommendedItems.length > 0) {
+    rows.push([])
+    rows.push(['=== 推荐配件（按规格） ==='])
+    rows.push(['类型', '名称', '型材规格', '数量', '单价(元)', '总价(元)'])
+    recommendedItems.forEach(item => {
+      rows.push([
+        item.id, item.name, item.specId, item.count,
+        item.pricePerUnit.toFixed(2),
+        (item.count * item.pricePerUnit).toFixed(2),
+      ])
+    })
+  }
 
   // 成本汇总
   rows.push([])

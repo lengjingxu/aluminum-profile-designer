@@ -63,3 +63,40 @@ export const ACCESSORY_TYPES = {
 export const DEFAULT_PRICES = Object.fromEntries(
   Object.entries(ACCESSORY_TYPES).map(([key, val]) => [key, val.pricePerUnit])
 )
+
+// 按型材规格推荐配套螺栓套装（T07）
+// 每根型材按长度分摊螺栓用量：每米需要 4 套螺栓（T-slot 槽连接）
+export const BOLT_SET_PRICES = {
+  '2020': { name: 'M5 螺栓套装', spec: 'M5', pricePerSet: 1.5, boltsPerSet: 4 },
+  '2040': { name: 'M5 螺栓套装', spec: 'M5', pricePerSet: 1.5, boltsPerSet: 4 },
+  '3030': { name: 'M6 螺栓套装', spec: 'M6', pricePerSet: 2.0, boltsPerSet: 4 },
+  '3060': { name: 'M6 螺栓套装', spec: 'M6', pricePerSet: 2.0, boltsPerSet: 4 },
+  '4040': { name: 'M8 螺栓套装', spec: 'M8', pricePerSet: 3.0, boltsPerSet: 4 },
+  '4080': { name: 'M8 螺栓套装', spec: 'M8', pricePerSet: 3.0, boltsPerSet: 4 },
+  '6060': { name: 'M10 螺栓套装', spec: 'M10', pricePerSet: 5.0, boltsPerSet: 4 },
+  '8080': { name: 'M12 螺栓套装', spec: 'M12', pricePerSet: 8.0, boltsPerSet: 4 },
+}
+
+// 按型材规格推荐配套角码（T07 配套）
+export const ANGLE_BRACKET_PRICES = {
+  '2020': { name: '2020 角码', pricePerUnit: 1.5 },
+  '2040': { name: '2040 角码', pricePerUnit: 2.0 },
+  '3030': { name: '3030 角码', pricePerUnit: 2.5 },
+  '3060': { name: '3060 角码', pricePerUnit: 3.0 },
+  '4040': { name: '4040 角码', pricePerUnit: 3.0 },
+  '4080': { name: '4080 角码', pricePerUnit: 4.0 },
+  '6060': { name: '6060 角码', pricePerUnit: 5.0 },
+  '8080': { name: '8080 角码', pricePerUnit: 8.0 },
+}
+
+// 按型材规格推荐配套弹性扣（T07 配套）
+export const SPRING_CLIP_PRICES = {
+  '2020': { name: '2020 弹性扣', pricePerUnit: 0.5 },
+  '2040': { name: '2040 弹性扣', pricePerUnit: 0.6 },
+  '3030': { name: '3030 弹性扣', pricePerUnit: 0.8 },
+  '3060': { name: '3060 弹性扣', pricePerUnit: 0.8 },
+  '4040': { name: '4040 弹性扣', pricePerUnit: 0.8 },
+  '4080': { name: '4080 弹性扣', pricePerUnit: 1.0 },
+  '6060': { name: '6060 弹性扣', pricePerUnit: 1.2 },
+  '8080': { name: '8080 弹性扣', pricePerUnit: 1.5 },
+}
